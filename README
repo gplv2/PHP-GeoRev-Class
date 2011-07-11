@@ -1,0 +1,43 @@
+This class can be used to consult json capable engines for the reverse geocoding information they provide on a lat/lon pair.  It optionally used memcache to cache this information.   It's intended use is to sit behind a map that has certain points you want to geocode.
+
+I wrote this to conduct a review of their possibilities and also their specific annoyances,  and there are quite a few that remain an issue for me
+
+You should just download the package from github and follow the test case.  You also need to secure keys for various services yourself.  As an added bonus this supports google V3 Premier ID's too where you need to sign urls.  (so called gme- keys @ google)
+
+Main features:
+- Can be extended to extract different data instead of a full streetaddress
+- Google V3 support (Enterprise users)
+- MemCached support
+
+
+If you want an equivalent of the float2small and -back functions for MariaDB(MysqlDB) use this:
+
+Function: PositionSmallToFloat
+CREATE DEFINER=`root`@`localhost` FUNCTION `PositionSmallToFloat`(s INT) RETURNS decimal(10,7)
+DETERMINISTIC
+RETURN if( ((s > 0) && (s >> 31)) , (-(0x7FFFFFFF - (s & 0x7FFFFFFF))) / 600000, s / 600000)
+
+Function: PositionFloatToSmall
+Create Function: 
+CREATE DEFINER=`root`@`localhost` FUNCTION `PositionFloatToSmall`(s DECIMAL(10,7)) RETURNS int(10)
+DETERMINISTIC
+RETURN s * 600000
+
+It's called 'Small' but it really is a large INT:
+
+`lat` int(10) unsigned NOT NULL,
+`lon` int(10) unsigned NOT NULL
+
+In database terms. The unsigned is important or it doesn't fit in the int(10)
+
+You don't need to install any GIS support for the database, you can use 2 ints as the PK of the table involved, it will be superfast.  Especially if you use partitioning.
+
+So like this you can retrieve points you're about to display on a certain map and geocode them in the background or using better techniques I can't come up with now.  I made this to compair them in depth.
+
+Any questions, please visit:
+
+http://byte-consult.be
+
+Or use this GITHUB page.
+
+The page might not be up yet, I so freshly commited this, so once it's up this notice will be gone.
