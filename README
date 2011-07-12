@@ -8,7 +8,7 @@ Main features:
 - Can be extended to extract different data instead of a full streetaddress
 - Google V3 support (Enterprise users)
 - MemCached support
-
+- Lots of debugging
 
 If you want an equivalent of the float2small and -back functions for MariaDB(MysqlDB) use this:
 

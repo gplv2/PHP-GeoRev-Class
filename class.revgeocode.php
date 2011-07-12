@@ -251,34 +251,6 @@ Class GeoRev {
       return $retval;
    }
 
-
-   public function revgeocode_all () {
-      $this->debug(__METHOD__, "call",5);
-      /* calc bing timeout */
-      if(!empty($this->settings['use_bing'])) {
-         $interval_since_last = (microtime(true) - $this->counters['bi_timer'] ) * 1000000; # This is seconds and we are working in microseconds
-            $minimum_sleep = $this->settings['sleep_bing']*1000;
-         if ($interval_since_last < $minimum_sleep) {
-            $bing_wait = $minimum_sleep - $interval_since_last;
-            //$this->debug( __METHOD__, "simple", 0, array ('now'=> microtime(true), 'bi_timer'=> $this->counters['bi_timer'], 'interval'=> $interval_since_last, 'min'=> $minimum_sleep, 'wait'=> $bing_wait), 2);
-         } else {
-            $bing_wait = 0;
-         }
-      }
-
-      /* calc yahoo timeout */
-      if(!empty($this->settings['use_yahoo'])) {
-         $interval_since_last = (microtime(true) - $this->counters['ya_timer'] ) * 1000000; # This is seconds and we are working in microseconds so multiply
-            $minimum_sleep = $this->settings['sleep_yahoo']*1000;
-         if ($interval_since_last < $minimum_sleep) {
-            $yahoo_wait = $minimum_sleep - $interval_since_last;
-         } else {
-            $yahoo_wait = 0;
-         }
-      }
-      $this->debug(__METHOD__, "hangup",5);
-   }
-
    private function revgeocode_google () {
       $this->debug(__METHOD__, "call",5);
       $tag='google';
