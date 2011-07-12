@@ -38,21 +38,21 @@ require_once('utf8_helper.php');
 Class GeoRev {
    // Defaults, base stuff we can't do without
    private $settings= array( 
-         'debug' => 1,
-         'verbose' => 3,
-         'use_yahoo' => true,
-         'use_bing' => true,
-         'use_geonames' => true,
-         'use_nominatim' => true,
-         'use_google' => true,
-         'use_google_v3' => false,
+         'debug' => 0,
+         'verbose' => 0,
+         'use_yahoo' => 0,
+         'use_bing' => 0,
+         'use_geonames' => 0,
+         'use_nominatim' => 0,
+         'use_google' => 0,
+         'use_google_v3' => 0,
          'sleep_bing' => '2000',
          'sleep_yahoo' => '2000',
          'sleep_google' => '2000',
          'sleep_geonames' => '2000',
          'sleep_nominatim' => '2000',
          'mc_compress' => 1,
-         'mc_expire' => 120
+         'mc_expire' => 500
          );
 
    // This kinda maps what belongs to who
@@ -88,8 +88,8 @@ Class GeoRev {
    public $nominatim_page; 
 
    // Dev aid
-   public $debug;
-   public $verbose;
+   public $debug=1;
+   public $verbose=1;
 
    public function __construct($conf_settings) {
       /* test if we are called from the CLI */
@@ -113,15 +113,23 @@ Class GeoRev {
 
       // Merge the class defaults with the settings
       $this->settings = array_merge($this->settings, $conf_settings);
+
       // Merge the autosettings with the settings
       $this->settings = array_merge($this->settings, $auto_settings);
+
+      // $this->debug(__METHOD__, "simple" , 1, $this->settings,1);
+      // $this->debug(__METHOD__, "simple" , 1, "",1);
 
       // Set the correct debug values
       $this->verbose=$this->settings['verbose'];
       $this->debug=$this->settings['debug'];
 
-      $this->debug(__METHOD__, "simple" , 2, sprintf("Status geocode engines"));
-      $this->debug(__METHOD__, "simple" , 2, $auto_settings,1);
+      // $this->debug(__METHOD__, "simple" , 1, sprintf("%d / %d",$this->debug,$this->verbose));
+
+      $this->debug(__METHOD__, "simple" , 1, sprintf("Status geocode engines"));
+      $this->debug(__METHOD__, "simple" , 1, $auto_settings,1);
+
+      $this->debug(__METHOD__, "simple" , 1, $this->settings,1);
 
       // Record the engine states for later
       $this->engine_states=$auto_settings;
@@ -456,7 +464,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $this->bing_page = array ('curlinfo' => $curlinfo, 'contents' => $contents);
       // Store in the cache if we can
       if(isset($this->MC)){
-         $this->debug(__METHOD__, "simple",1,"Saving in cache");
+         $this->debug(__METHOD__, "simple",2,"Saving in cache");
          $this->MC->set($mckey, $this->bing_page, $this->settings['mc_compress'], $this->settings['mc_expire']);
          $this->counters['memc_set']++;
       }
@@ -542,7 +550,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       $this->yahoo_page = array ('curlinfo' => $curlinfo, 'contents' => $contents);
       if(isset($this->MC)){
-         $this->debug(__METHOD__, "simple",1,"Saving in cache");
+         $this->debug(__METHOD__, "simple",2,"Saving in cache");
          $this->MC->set($mckey, $this->yahoo_page, $this->settings['mc_compress'], $this->settings['mc_expire']);
          $this->counters['memc_set']++;
       }
@@ -627,7 +635,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       $this->geonames_page = array ('curlinfo' => $curlinfo, 'contents' => $contents);
       if(isset($this->MC)){
-         $this->debug(__METHOD__, "simple",1,"Saving in cache");
+         $this->debug(__METHOD__, "simple",2,"Saving in cache");
          $this->MC->set($mckey, $this->geonames_page, $this->settings['mc_compress'], $this->settings['mc_expire']);
          $this->counters['memc_set']++;
       }
@@ -713,7 +721,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       $this->nominatim_page = array ('curlinfo' => $curlinfo, 'contents' => $contents);
       if(isset($this->MC)){
-         $this->debug(__METHOD__, "simple",1,"Saving in cache");
+         $this->debug(__METHOD__, "simple",2,"Saving in cache");
          $this->MC->set($mckey, $this->nominatim_page, $this->settings['mc_compress'], $this->settings['mc_expire']);
          $this->counters['memc_set']++;
       }
@@ -741,7 +749,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       return($newaddress);
    }
 
-   public function json_printable_encode($in, $indent = 3, $from_array = false) {
+   public static function json_printable_encode($in, $indent = 3, $from_array = false) {
       $_escape = function ($str)
       {
          return preg_replace("!([\b\t\n\r\f\"\\'])!", "\\\\\\1", $str);
@@ -780,12 +788,12 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
 
    // Google V3 functions
-   private function encode_base64_url_safe($value) {
+   public static function encode_base64_url_safe($value) {
       //$this->debug(__METHOD__, "call",5);
       return str_replace(array('+', '/'), array('-', '_'), base64_encode($value));
    }
 
-   private function decode_base64_url_safe($value) {
+   public static function decode_base64_url_safe($value) {
       //$this->debug(__METHOD__, "call",5);
       return base64_decode(str_replace(array('-', '_'), array('+', '/'), $value));
    }
@@ -816,7 +824,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
    }
 
    // I just miss working with perl
-   private function my_chomp(&$string) {
+   public static function my_chomp(&$string) {
       //$this->debug(__METHOD__, "call",5);
       if (is_array($string)) {
          foreach($string as $i => $val) {
@@ -830,14 +838,14 @@ Not-for-profit: Application is used by a tax-exempt organization.
    }
 
    // Use this to create ints from lat/lon floats , so you can use they as memcache keys
-   private function small_to_float($LatitudeSmall) {
+   public static function small_to_float($LatitudeSmall) {
       if(($LatitudeSmall>0)&&($LatitudeSmall>>31)) {
          $LatitudeSmall=-(0x7FFFFFFF-($LatitudeSmall&0x7FFFFFFF))-1;
       }
       return (float)$LatitudeSmall/(float)600000;
    }
 
-   private function float_to_small($LongitudeFloat) {
+   public static function float_to_small($LongitudeFloat) {
       $Longitude=round((float)$LongitudeFloat*(float)600000);
       if($Longitude<0) { 
          $Longitude+=0xFFFFFFFF; 
@@ -938,7 +946,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          return ""; 
       }
 
-      $this->debug( __METHOD__, "simple", 1,print_r($page,true),1);
+      $this->debug( __METHOD__, "simple", 3,print_r($page,true),1);
 
       // We can easily perform more in depth checks with google
       $status = $page['Status']['code'];
@@ -1055,7 +1063,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          return ""; 
       }
 
-      $this->debug( __METHOD__, "simple", 1,print_r($page,true),1);
+      $this->debug( __METHOD__, "simple", 3,print_r($page,true),1);
 
       $count = count($page['resourceSets']);
 
@@ -1117,7 +1125,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          return ""; 
       }
 
-      $this->debug( __METHOD__, "simple", 1,print_r($page,true),1);
+      $this->debug( __METHOD__, "simple", 3,print_r($page,true),1);
 
       $status = $page['ResultSet']['Error'];
       $message = $page['ResultSet']['ErrorMessage'];
@@ -1183,7 +1191,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          return ""; 
       }
 
-      $this->debug( __METHOD__, "simple", 1,print_r($page,true),1);
+      $this->debug( __METHOD__, "simple", 3,print_r($page,true),1);
 
       $address="";
 
@@ -1275,7 +1283,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          return ""; 
       }
 
-      $this->debug( __METHOD__, "simple", 1,print_r($page,true),1);
+      $this->debug( __METHOD__, "simple", 3,print_r($page,true),1);
 
       /* Nominatim is much more straightforward to decode */
       if (isset($page['address'])) {
