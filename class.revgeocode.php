@@ -314,9 +314,6 @@ Class GeoRev {
       /* Do it with curl */
       $ch = curl_init($url);
 
-      // $post_arr = array(), 'cmd' => "startstop", 'range' => $range);
-      // curl_setopt($ch, CURLOPT_POSTFIELDS, $post_arr);
-
       curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
       $server_output = curl_exec($ch);
       $curlinfo = curl_getinfo($ch);
@@ -411,9 +408,6 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       /* Do it with curl */
       $ch = curl_init($url);
-
-      // $post_arr = array(), 'cmd' => "startstop", 'range' => $range);
-      // curl_setopt($ch, CURLOPT_POSTFIELDS, $post_arr);
 
       curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
       $server_output = curl_exec($ch);
@@ -525,9 +519,6 @@ http://where.yahooapis.com/geocode?q=%1$s,+%2$s&gflags=R&appid=[yourappidhere]
 
       /* Do it with curl */
       $ch = curl_init($url);
-
-      // $post_arr = array(), 'cmd' => "startstop", 'range' => $range);
-      // curl_setopt($ch, CURLOPT_POSTFIELDS, $post_arr);
 
       curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
       $server_output = curl_exec($ch);
@@ -700,9 +691,6 @@ http://where.yahooapis.com/geocode?q=%1$s,+%2$s&gflags=R&appid=[yourappidhere]
 
       /* Do it with curl */
       $ch = curl_init($url);
-
-      // $post_arr = array(), 'cmd' => "startstop", 'range' => $range);
-      // curl_setopt($ch, CURLOPT_POSTFIELDS, $post_arr);
 
       curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
       $server_output = curl_exec($ch);
