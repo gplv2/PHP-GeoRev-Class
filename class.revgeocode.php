@@ -506,11 +506,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $this->throttle_service($tag);
       $this->debug( __METHOD__, "simple", 2, sprintf("Encoding with Yahoo placefinder"));
 
-      /*
-         We need to url sign this request, like this example: 
-http://where.yahooapis.com/geocode?q=%1$s,+%2$s&gflags=R&appid=[yourappidhere]
-       */
-
+      /* http://where.yahooapis.com/geocode?q=%1$s,+%2$s&gflags=R&appid=[yourappidhere] */
       $baseurl = "http://where.yahooapis.com/geocode?q=";
       $url = $baseurl . $this->lat .",".$this->lon."&gflags=R&flags=J&appid=" . $this->settings['key_yahoo'];
 
@@ -898,16 +894,16 @@ http://where.yahooapis.com/geocode?q=%1$s,+%2$s&gflags=R&appid=[yourappidhere]
       $minimum_sleep = $this->settings[$sleep_service]*1000;
 
       $this->debug( __METHOD__, "simple", 4, sprintf("%s",microtime(true)));
-      $this->debug( __METHOD__, "simple", 4, sprintf("Minsleep for %s is %d",$service_name, $minimum_sleep));
+      $this->debug( __METHOD__, "simple", 4, sprintf("Minsleep for %s is %dus",$service_name, $minimum_sleep));
 # microtime is a float in seconds and we are working in microseconds so adjust
       $interval_since_last = (microtime(true) - $this->counters[$target_timer] ) * 1000000; 
-      $this->debug( __METHOD__, "simple", 3, sprintf("Interval since last is %d",$interval_since_last));
+      $this->debug( __METHOD__, "simple", 3, sprintf("Interval since last is %dus",$interval_since_last));
 
-# can we issue the request yet of do we need some sleep
+# can we issue the request yet or do we need some more sleep
       if ($interval_since_last < $minimum_sleep) {
          $wait = $minimum_sleep - $interval_since_last;
          //$this->debug( __METHOD__, "simple", 0, array ('now'=> microtime(true), 'bi_timer'=> $this->counters['bi_timer'], 'interval'=> $interval_since_last, 'min'=> $minimum_sleep, 'wait'=> $wait), 2);
-         $this->debug( __METHOD__, "simple", 4, sprintf("Sleeping for %d us",$wait));
+         $this->debug( __METHOD__, "simple", 4, sprintf("Sleeping for %dus",$wait));
          usleep($wait);
          // $spare = $interval_since_last - $minimum_sleep;
          // $this->debug( __METHOD__, "simple", 0, sprintf("Not waiting , spare %s time is %s us",$service_name, $spare));
