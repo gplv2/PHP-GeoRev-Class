@@ -1,8 +1,9 @@
+
+
 Introduction
 ============
 
-[PHP reverse geocoding class](http://github.com/gplv2/PHP-GeoRev-Class/) 
-A non-bloated class that makes it easy to use up to 5 supported engines to decode lat/long coordinates to a street name.  It uses JSON all the way internally, so no XML format to throw up over.  This class can be extended to consult any json capable engines for the reverse geocoding information they provide on a lat/lon pair. Optionally uses memcache to cache this information. It's intended use is to sit behind a map that has certain points you want to geocode in advance.  Most providers do not allow you to geocode anything you won't show on their maps and they also don't like you to save this information permanently but they do recommend a caching policy.  Be informed in advance about this.
+[PHP-GeoRev-Class](http://github.com/gplv2/PHP-GeoRev-Class/) is a non-bloated class that makes it easy to use up to 5 supported engines to decode lat/long coordinates to a street name.  It uses JSON all the way internally, so no XML format to throw up over.  This class can be extended to consult any json capable engines for the reverse geocoding information they provide on a lat/lon pair. Optionally uses memcache to cache this information. It's intended use is to sit behind a map that has certain points you want to geocode in advance.  Most providers do not allow you to geocode anything you won't show on their maps and they also don't like you to save this information permanently but they do recommend a caching policy.  Be informed in advance about this.
 
 I made this to compair them in depth on their quality/results.
 
