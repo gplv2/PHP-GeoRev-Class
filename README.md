@@ -24,6 +24,17 @@ Reverse geocoding engines
 - [Nominatim](http://open.mapquestapi.com/nominatim/v1/reverse?format=json&json_callback=renderExampleThreeResults&lat=51.521435&lon=-0.162714)
 - [GeoNames](http://api.geonames.org/findNearbyPlaceNameJSON?lat=%s&lng=%s&username=%s&style=full)
 
+Quick-start
+===========
+
+1. Get a key for all or any Web Service, if you have none and do not want to wait to try, use your email address for nominatim (read their ULA!) 
+
+2. view the test_example.php, comment out all calls to the engines you do not want to use, adjust the config array with your keys
+
+3. Adjust the debug/verbose values, try 1/2 for more information of what goes on behind the scene.  I took extra effort to put human readable verbose debug statements in there. at level 1/1 it will print out the most basic information.
+   
+4. Run it !
+
 Usage example
 =============
     <?PHP
@@ -116,16 +127,14 @@ This class maps all the actions to the optional MemCached server.  This also is 
       $MC->set($test_key, $test_val, $compress=1, $expire=60);
       $result = $MC->get($test_key);
 
-Quick-start
-===========
+Dependencies
+============
+ - [cURL for php5](http://php.net/manual/en/book.curl.php): for ubuntu/debian apt-get update && apt-get install php5-curl
 
-1. Get a key for all or any Web Service, if you have none and do not want to wait to try, use your email address for nominatim (read their ULA!) 
+Limits
+======
 
-2. view the test_example.php, comment out all calls to the engines you do not want to use, adjust the config array with your keys
-
-3. Adjust the debug/verbose values, try 1/2 for more information of what goes on behind the scene.  I took extra effort to put human readable verbose debug statements in there. at level 1/1 it will print out the most basic information.
-   
-4. Run it !
+There is 1 major method that handles the webservice side of things, which is where cURL is being used, ex: revgeocode_yahoo().  This will store the results of this call along with the curl information about this request in a private class variable $yahoo_page.  On the other side, the output method is is called ex: get_street_name_yahoo().  This is the only method that returns something meaningful.  This is one of the hardest ones to do too.  Adding a function that only returns a country code is a lot easier to build of course.  There is a lot more information accesible under the hood, you just need to write the appropriate formatting method to extract it once it passes the revgeocode methods.  So the limit here is that it only returns -hopefully- human readable addresses.
 
 Mysql functions
 ===============
