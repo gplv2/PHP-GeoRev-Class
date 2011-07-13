@@ -1,7 +1,8 @@
 Introduction
 ============
 
-[PHP reverse geocoding](http://github.com/gplv2/PHP-GeoRev-Class/) A non-bloated class that makes it easy to use up to 5 supported engines to decode lat/long coordinates to a street name.  It uses JSON all the way internally, so no XML format to throw up over.  This class can be extended to consult any json capable engines for the reverse geocoding information they provide on a lat/lon pair. Optionally uses memcache to cache this information. It's intended use is to sit behind a map that has certain points you want to geocode in advance.  Most providers do not allow you to geocode anything you won't show on their maps and they also don't like you to save this information permanently but they do recommend a caching policy.  Be informed in advance about this.
+[PHP reverse geocoding class](http://github.com/gplv2/PHP-GeoRev-Class/) 
+A non-bloated class that makes it easy to use up to 5 supported engines to decode lat/long coordinates to a street name.  It uses JSON all the way internally, so no XML format to throw up over.  This class can be extended to consult any json capable engines for the reverse geocoding information they provide on a lat/lon pair. Optionally uses memcache to cache this information. It's intended use is to sit behind a map that has certain points you want to geocode in advance.  Most providers do not allow you to geocode anything you won't show on their maps and they also don't like you to save this information permanently but they do recommend a caching policy.  Be informed in advance about this.
 
 I made this to compair them in depth on their quality/results.
 
@@ -15,12 +16,14 @@ Main features
 
 Reverse geocoding engines
 -------------------------
-### [Google](http://maps.google.com/maps/api/geocode/json?address=1600+Amphitheatre+Parkway&client=gme-yourclientid&sensor=true&signature=YOUR_URL_SIGNATURE)
-### [Yahoo](http://where.yahooapis.com/geocode?q=%1$s,+%2$s&gflags=R&appid=[yourappidhere])
-### [Bing](http://dev.virtualearth.net/REST/v1/Locations/50.43434,4.5232323?o=json&key=[key_here])
-### [Nominatim](http://open.mapquestapi.com/nominatim/v1/reverse?format=json&json_callback=renderExampleThreeResults&lat=51.521435&lon=-0.162714)
-### [GeoNames](http://api.geonames.org/findNearbyPlaceNameJSON?lat=%s&lng=%s&username=%s&style=full)
+- [Google](http://maps.google.com/maps/api/geocode/json?address=1600+Amphitheatre+Parkway&client=gme-yourclientid&sensor=true&signature=YOUR_URL_SIGNATURE)
+- [Yahoo](http://where.yahooapis.com/geocode?q=%1$s,+%2$s&gflags=R&appid=[yourappidhere])
+- [Bing](http://dev.virtualearth.net/REST/v1/Locations/50.43434,4.5232323?o=json&key=[key_here])
+- [Nominatim](http://open.mapquestapi.com/nominatim/v1/reverse?format=json&json_callback=renderExampleThreeResults&lat=51.521435&lon=-0.162714)
+- [GeoNames](http://api.geonames.org/findNearbyPlaceNameJSON?lat=%s&lng=%s&username=%s&style=full)
 
+Usage example
+=============
     <?PHP
       require_once("class.revgeocode.php");
 
@@ -28,12 +31,12 @@ Reverse geocoding engines
       $conf = array( 
             'debug' => '1',
             'verbose' => '1',
-            'use_yahoo' => true,
-            'use_bing' => true,
-            'use_geonames' => true,
-            'use_nominatim' => true,
-            'use_google' => true,
-            'use_google_v3' => false,
+            'use_yahoo' => '1',
+            'use_bing' => '1',
+            'use_geonames' => '1',
+            'use_nominatim' => '1',
+            'use_google' => '1',
+            'use_google_v3' => '0',
             'sleep_bing' => '2000',
             'sleep_yahoo' => '2000',
             'sleep_google' => '2000',
@@ -76,46 +79,42 @@ Reverse geocoding engines
 
       // Check our raw cached request (curlinfo + output) per engine:
       $kick_butt->debug(__METHOD__, "simple",1, print_r($kick_butt->google_page,true));
-      >
 
 Components
 ==========
 
-This class uses 2 supporting classes to get things done, "class Latin1UTF8" for transcoding utf8/latin1. You might have to play with inside RevGeo class code to match what you want instead of what I wanted (which was output format latin1 at the time).  The other one is the "class MCache", this is optional, you can use this class without them (But I highly suggest you do use memcached). Just don't define any cacheservers in your config array (see above) and it will not be used.
+This class uses 2 supporting classes to get things done, "class Latin1UTF8" for transcoding utf8/latin1. You might have to play with inside RevGeo class code to match what you want instead of what I wanted (which was output format latin1 at the time).  The other one is the "class MCache", this is optional, you can use the RevGeo class without it (But I highly suggest you do use memcached). Just don't define any cacheservers in your config array (see above) and it will not be used.
 
 Latin1UTF8 class
 ----------------
 
 This is a very simple class, excellent code for cleaning up mixed utf8 strings back and forth from latin1.  I didn not write this myself but found it in search of some solution, I would love to show credit here to the original author but I have no information on who (anymore).  I have used this a lot and this saved me from having to fix a database with mixed records between both encodings.  This little gem is worth a download on itself. (too bad I didn not come up with it myself :).
 
-   <?PHP
-   $trans = new Latin1UTF8();
+    <?PHP
+      $trans = new Latin1UTF8();
+      $mixed = "MIXED TEXT INPUT";
 
-   $mixed = "MIXED TEXT INPUT";
-
-   print "Original: ".$mixed;
-   print "Latin1:   ".$trans->mixed_to_latin1($mixed);
-   print "UTF-8:    ".$trans->mixed_to_utf8($mixed);
-   >
+      print "Original: ".$mixed;
+      print "Latin1:   ".$trans->mixed_to_latin1($mixed);
+      print "UTF-8:    ".$trans->mixed_to_utf8($mixed);
 
 MCache class
 ------------
 
 This class maps all the actions to the optional MemCached server.  This also is not from my hand but I did mod this class to allow me to not get any hard errors on a missing/not working MemCached servers at the __construct phase.  Other than that, this is a pretty raw class that will not handle a running MemCached that starts to fail.  But it works quite fine as long as they are up.  My focus remained supporting the reverse geocode features of each engine but I wanted to show how to create appropriate memcache keys from lat/lon floats.   The original author is named [Grigori Kochanov](http://www.grik.net/). It does its own server pooling.
 
-   <PHP
-   include_once('class.memcached.php');
+    <?PHP
+      include_once('class.memcached.php');
 
-   $MC = new MCache($memc_servers);
+      $MC = new MCache($memc_servers);
 
-   // Create key/val to store
-   $test_val = sprintf("%s%s", md5(rand()),time());
-   $test_key = "MCTEST";
+      // Create key/val to store
+      $test_val = sprintf("%s%s", md5(rand()),time());
+      $test_key = "MCTEST";
 
-   // Set and get 
-   $MC->set($test_key, $test_val, $compress=1, $expire=60);
-   $result = $MC->get($test_key);
-   >
+      // Set and get 
+      $MC->set($test_key, $test_val, $compress=1, $expire=60);
+      $result = $MC->get($test_key);
 
 Quick-start guide
 =================
@@ -136,25 +135,22 @@ In the PHP source there are 2 functions to encodecode lat/lon floats to int form
 Function: PositionSmallToFloat
 ------------------------------
    <?SQL
-   CREATE DEFINER=`root`@`localhost` FUNCTION `PositionSmallToFloat`(s INT) RETURNS decimal(10,7)
-   DETERMINISTIC
-   RETURN if( ((s > 0) && (s >> 31)) , (-(0x7FFFFFFF - (s & 0x7FFFFFFF))) / 600000, s / 600000)
-   >
+      CREATE DEFINER=`root`@`localhost` FUNCTION `PositionSmallToFloat`(s INT) RETURNS decimal(10,7)
+      DETERMINISTIC
+      RETURN if( ((s > 0) && (s >> 31)) , (-(0x7FFFFFFF - (s & 0x7FFFFFFF))) / 600000, s / 600000)
 
 Function: PositionFloatToSmall
 ------------------------------
    <?SQL
-   CREATE DEFINER=`root`@`localhost` FUNCTION `PositionFloatToSmall`(s DECIMAL(10,7)) RETURNS int(10)
-   DETERMINISTIC
-   RETURN s * 600000
-   >
+      CREATE DEFINER=`root`@`localhost` FUNCTION `PositionFloatToSmall`(s DECIMAL(10,7)) RETURNS int(10)
+      DETERMINISTIC
+      RETURN s * 600000
 
 It's called 'Small' but it really is a large INT:
 
-<?SQL
-`lat` int(10) unsigned NOT NULL,
-`lon` int(10) unsigned NOT NULL
->
+   <?SQL
+     `lat` int(10) unsigned NOT NULL,
+     `lon` int(10) unsigned NOT NULL
 
 In database terms. The unsigned is important or it doesn't fit in the int(10).  You don't need to install any GIS support for the database, you can use 2 ints as the PK of the table involved, it will be superfast.  Especially if you use partitioning.
 
