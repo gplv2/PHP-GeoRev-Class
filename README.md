@@ -85,8 +85,7 @@ Components
 
 This class uses 2 supporting classes to get things done, "class Latin1UTF8" for transcoding utf8/latin1. You might have to play with inside RevGeo class code to match what you want instead of what I wanted (which was output format latin1 at the time).  The other one is the "class MCache", this is optional, you can use the RevGeo class without it (But I highly suggest you do use memcached). Just don't define any cacheservers in your config array (see above) and it will not be used.
 
-Latin1UTF8 class
-----------------
+### Latin1UTF8 class
 
 This is a very simple class, excellent code for cleaning up mixed utf8 strings back and forth from latin1.  I didn not write this myself but found it in search of some solution, I would love to show credit here to the original author but I have no information on who (anymore).  I have used this a lot and this saved me from having to fix a database with mixed records between both encodings.  This little gem is worth a download on itself. (too bad I didn not come up with it myself :).
 
@@ -98,8 +97,7 @@ This is a very simple class, excellent code for cleaning up mixed utf8 strings b
       print "Latin1:   ".$trans->mixed_to_latin1($mixed);
       print "UTF-8:    ".$trans->mixed_to_utf8($mixed);
 
-MCache class
-------------
+#### MCache class
 
 This class maps all the actions to the optional MemCached server.  This also is not from my hand but I did mod this class to allow me to not get any hard errors on a missing/not working MemCached servers at the __construct phase.  Other than that, this is a pretty raw class that will not handle a running MemCached that starts to fail.  But it works quite fine as long as they are up.  My focus remained supporting the reverse geocode features of each engine but I wanted to show how to create appropriate memcache keys from lat/lon floats.   The original author is named [Grigori Kochanov](http://www.grik.net/). It does its own server pooling.
 
