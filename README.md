@@ -85,7 +85,7 @@ Components
 
 This class uses 2 supporting classes to get things done, "class Latin1UTF8" for transcoding utf8/latin1. You might have to play with inside RevGeo class code to match what you want instead of what I wanted (which was output format latin1 at the time).  The other one is the "class MCache", this is optional, you can use the RevGeo class without it (But I highly suggest you do use memcached). Just don't define any cacheservers in your config array (see above) and it will not be used.
 
-### Latin1UTF8 class
+#### Latin1UTF8 class
 
 This is a very simple class, excellent code for cleaning up mixed utf8 strings back and forth from latin1.  I didn not write this myself but found it in search of some solution, I would love to show credit here to the original author but I have no information on who (anymore).  I have used this a lot and this saved me from having to fix a database with mixed records between both encodings.  This little gem is worth a download on itself. (too bad I didn not come up with it myself :).
 
@@ -114,8 +114,8 @@ This class maps all the actions to the optional MemCached server.  This also is 
       $MC->set($test_key, $test_val, $compress=1, $expire=60);
       $result = $MC->get($test_key);
 
-Quick-start guide
-=================
+Quick-start
+===========
 
 1. Get a key for all or any Web Service, if you have none and do not want to wait to try, use your email address for nominatim (read their ULA!) 
 
@@ -130,23 +130,21 @@ Mysql functions
 
 In the RevGeo class there are 2 functions to encode/decode lat/lon floats to int format, which you can use as a key, or for fast indexing in a database.  If you want an equivalent of the float2small and -back functions in SQL for MariaDB(MysqlDB) try these:
 
-PositionSmallToFloat
---------------------
+#### PositionSmallToFloat
     <?SQL
        CREATE DEFINER=`root`@`localhost` FUNCTION `PositionSmallToFloat`(s INT) RETURNS decimal(10,7)
        DETERMINISTIC
        RETURN if( ((s > 0) && (s >> 31)) , (-(0x7FFFFFFF - (s & 0x7FFFFFFF))) / 600000, s / 600000)
 
-PositionFloatToSmall
---------------------
+#### PositionFloatToSmall
     <?SQL
        CREATE DEFINER=`root`@`localhost` FUNCTION `PositionFloatToSmall`(s DECIMAL(10,7)) RETURNS int(10)
        DETERMINISTIC
        RETURN s * 600000
 
 It's called 'Small' but it really is a large INT:
-- `lat` int(10) unsigned NOT NULL,
-- `lon` int(10) unsigned NOT NULL
+- lat int(10) unsigned NOT NULL
+- lon int(10) unsigned NOT NULL
 
 In database terms. The unsigned is important or it doesn't fit in the int(10).  You don't need to install any GIS support for the database, you can use 2 ints as the PK of the table involved, it will be superfast.  Especially if you use partitioning.
 
