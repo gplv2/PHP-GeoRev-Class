@@ -88,8 +88,8 @@ Class GeoRev {
    public $nominatim_page; 
 
    // Dev aid
-   public $debug=1;
-   public $verbose=1;
+   public $debug;
+   public $verbose;
 
    public function __construct($conf_settings) {
       /* test if we are called from the CLI */

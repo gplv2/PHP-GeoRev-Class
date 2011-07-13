@@ -1,14 +1,20 @@
-This class can be used to consult json capable engines for the reverse geocoding information they provide on a lat/lon pair.  It optionally used memcache to cache this information.   It's intended use is to sit behind a map that has certain points you want to geocode.
+This class can be used to consult json capable engines for the reverse geocoding information they provide on a lat/lon pair.  It optionally used memcache to cache this information. It's intended use is to sit behind a map that has certain points you want to geocode.
 
 I wrote this to conduct a review of their possibilities and also their specific annoyances,  and there are quite a few that remain an issue for me
 
 You should just download the package from github and follow the test case.  You also need to secure keys for various services yourself.  As an added bonus this supports google V3 Premier ID's too where you need to sign urls.  (so called gme- keys @ google)
 
 Main features:
-- Can be extended to extract different data instead of a full streetaddress
+- Can be extended to extract different data from the resultsets instead of a full streetaddress, or adapted to straight address geocoding.
 - Google V3 support (Enterprise users)
 - MemCached support
 - Lots of debugging
+- Support for 5 popular engines being:
+ * Google
+ * Yahoo
+ * Geonames
+ * Nominatim
+ * Bing
 
 If you want an equivalent of the float2small and -back functions for MariaDB(MysqlDB) use this:
 
