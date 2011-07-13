@@ -142,7 +142,8 @@ In the RevGeo class there are 2 functions to encode/decode lat/lon floats to int
        DETERMINISTIC
        RETURN s * 600000
 
-It's called 'Small' but it really is a large INT:
+It's called 'Small' but it really is a large INT
+
 - lat int(10) unsigned NOT NULL
 - lon int(10) unsigned NOT NULL
 
