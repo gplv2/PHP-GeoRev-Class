@@ -14,6 +14,7 @@ Main features
 - Handy timing support to throttle back the requests, not by sleeping a fixed amount but by checking how long ago you've hit that particular engine
 - MemCached supported
 - 5 popular engines supported
+- Usage statistics on engines/memcached
 
 Reverse geocoding engines
 -------------------------
