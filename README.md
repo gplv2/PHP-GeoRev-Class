@@ -130,27 +130,25 @@ Quick-start guide
 Mysql functions
 ===============
 
-In the PHP source there are 2 functions to encodecode lat/lon floats to int format, which you can use as a key, or for fast indexing in a database.  If you want an equivalent of the float2small and -back functions from the PHP code for MariaDB(MysqlDB) try these:
+In the RevGeo class there are 2 functions to encode/decode lat/lon floats to int format, which you can use as a key, or for fast indexing in a database.  If you want an equivalent of the float2small and -back functions in SQL for MariaDB(MysqlDB) try these:
 
-Function: PositionSmallToFloat
-------------------------------
-   <?SQL
-      CREATE DEFINER=`root`@`localhost` FUNCTION `PositionSmallToFloat`(s INT) RETURNS decimal(10,7)
-      DETERMINISTIC
-      RETURN if( ((s > 0) && (s >> 31)) , (-(0x7FFFFFFF - (s & 0x7FFFFFFF))) / 600000, s / 600000)
+PositionSmallToFloat
+--------------------
+    <?SQL
+       CREATE DEFINER=`root`@`localhost` FUNCTION `PositionSmallToFloat`(s INT) RETURNS decimal(10,7)
+       DETERMINISTIC
+       RETURN if( ((s > 0) && (s >> 31)) , (-(0x7FFFFFFF - (s & 0x7FFFFFFF))) / 600000, s / 600000)
 
-Function: PositionFloatToSmall
-------------------------------
-   <?SQL
-      CREATE DEFINER=`root`@`localhost` FUNCTION `PositionFloatToSmall`(s DECIMAL(10,7)) RETURNS int(10)
-      DETERMINISTIC
-      RETURN s * 600000
+PositionFloatToSmall
+--------------------
+    <?SQL
+       CREATE DEFINER=`root`@`localhost` FUNCTION `PositionFloatToSmall`(s DECIMAL(10,7)) RETURNS int(10)
+       DETERMINISTIC
+       RETURN s * 600000
 
 It's called 'Small' but it really is a large INT:
-
-   <?SQL
-     `lat` int(10) unsigned NOT NULL,
-     `lon` int(10) unsigned NOT NULL
+- `lat` int(10) unsigned NOT NULL,
+- `lon` int(10) unsigned NOT NULL
 
 In database terms. The unsigned is important or it doesn't fit in the int(10).  You don't need to install any GIS support for the database, you can use 2 ints as the PK of the table involved, it will be superfast.  Especially if you use partitioning.
 
