@@ -7,22 +7,26 @@ Introduction
 
 I made this to compair them in depth on their quality/results.
 
-Main features
-=============
+#### Main features
 - Can be extended to extract different data from the resultsets instead of a full streetaddress, or adapted to straight address geocoding.
-- Google V3 supported (Enterprise users)  As an added bonus this supports google V3 Premier ID's too where you need to sign urls.  (so called gme- keys @ google).  They code to sign those is included.
+- Google V2 and V3 supported (Enterprise users)  As an added bonus this supports google V3 Premier ID's too where you need to sign urls.  (so called gme- keys @ google).  They code to sign those is included.
 - Handy timing support to throttle back the requests, not by sleeping a fixed amount but by checking how long ago you've hit that particular engine
 - MemCached supported
 - 5 popular engines supported
 - Usage statistics on engines/memcached
 
-Reverse geocoding engines
--------------------------
+#### Reverse geocoding engines
 - [Google](http://maps.google.com/maps/api/geocode/json?address=1600+Amphitheatre+Parkway&client=gme-yourclientid&sensor=true&signature=YOUR_URL_SIGNATURE)
 - [Yahoo](http://where.yahooapis.com/geocode?q=%1$s,+%2$s&gflags=R&appid=[yourappidhere])
 - [Bing](http://dev.virtualearth.net/REST/v1/Locations/50.43434,4.5232323?o=json&key=[key_here])
-- [Nominatim](http://open.mapquestapi.com/nominatim/v1/reverse?format=json&json_callback=renderExampleThreeResults&lat=51.521435&lon=-0.162714)
+- [Nominatim](http://open.mapquestapi.com/nominatim/v1/reverse?format=json&json_callback=renderExampleThreeResults&lat=51.521435&lon=-0.162714) By Mapquest Open
 - [GeoNames](http://api.geonames.org/findNearbyPlaceNameJSON?lat=%s&lng=%s&username=%s&style=full)
+
+Api key links (incomplete)
+--------------------------
+- Google Maps API key: http://code.google.com/apis/maps/signup.html
+- Yahoo Placefinder Maps API key: http://developer.yahoo.com/maps/simple/
+- Nominatim / Mapquest: http://open.mapquestapi.com/nominatim/
 
 Quick-start
 ===========
