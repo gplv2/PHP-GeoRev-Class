@@ -237,7 +237,7 @@ Class GeoRev {
       $retval=1;
       $status="Coordinates ok";
 
-      if (empty($lat) OR empty($lon)) {
+      if (!isset($lat) OR !isset($lon)) {
          $retval= -1;
          $status="Need atleast lat/lon pair to do meaningful things";
       }
@@ -312,7 +312,7 @@ Class GeoRev {
          $url=$baseurl . $signurl . "&signature=" . $signature;
          $this->debug(__METHOD__, "simple" , 2, sprintf("Google v3"));
       } else {
-         $url =$baseurl . sprintf("/maps/geo?q=%s,%s&output=json&key=%s&sensor=false", $this->lat, $this->lon, $this->settings['key_google']);
+         $url = sprintf("%s/maps/geo?q=%s,%s&output=json&key=%s&sensor=false", $baseurl, $this->lat, $this->lon, $this->settings['key_google']);
          $this->debug(__METHOD__, "simple" , 5, sprintf("Google v2"));
       }
 
@@ -731,12 +731,12 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
 
    // Helper functions
-   private function post_filter_address($address) {
-      if (empty($address)) {
+   private function post_filter_address($location) {
+      if (empty($location)) {
          return "";
       }
       $this->debug(__METHOD__, "call",5);
-      $location = preg_replace("/ Belgium/"," BE", $address);
+      $location = preg_replace("/ Belgium/"," BE", $location);
       $location = preg_replace("/ The Netherlands/"," NL", $location);
       $location = preg_replace("/ Netherlands/"," NL", $location);
       $location = preg_replace("/ France/"," FR", $location);
@@ -744,9 +744,8 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $location = preg_replace("/ Antwerp/"," Antwerpen", $location);
       $location = preg_replace("/ Arrondissement/","", $location);
       $location = preg_replace("/Province/","", $location);
-      $newaddress=trim($location);
       $this->debug(__METHOD__, "hangup",5);
-      return($newaddress);
+      return(trim($location));
    }
 
    public static function json_printable_encode($in, $indent = 3, $from_array = false) {
@@ -1076,7 +1075,6 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $this->debug( __METHOD__, "simple", 3, sprintf("RevGeo = %s|%s result = %s",$this->lat, $this->lon, $this->bing_page['curlinfo']['http_code']));
 
       $newaddress="";
-
       if ($this->bing_page['curlinfo']['http_code']==200) {
          $this->counters['bing_ok']++;
          $newaddress=$this->trans->mixed_to_latin1($this->post_filter_address($address));
@@ -1143,11 +1141,13 @@ Not-for-profit: Application is used by a tax-exempt organization.
       if ($status==0) {
          $this->counters['yahoo_ok']++;
          // Successful geocode
-         $newaddress=trim($address);
-         $newaddress=$this->trans->mixed_to_latin1($newaddress);
+         $newaddress=trim($this->trans->mixed_to_latin1($this->post_filter_address($address)));
          /* When yahoo doesn't know the street for sure it just returns the coordinates it received 
-          * and places this in the field where we otherwise get our streetname from , isn't that great.  So we need to filter these out */
-         /* eg: "51.0801183333,4.41619666667, Rumst, BE" as streetname */
+          * and places this in the 'name' field where we otherwise get our streetname from , isn't that great.  So we need to filter these out 
+          * [name] => 42.510327,-89.937513
+          * will end up as : "51.0801183333,4.41619666667, Rumst, BE" as streetname, but when those coordinates aren't there in other cases, 
+          * their streetname is quite on the mark, very bizar behavior....  I'm missing the point of why here
+          */
          $filter_out=sprintf("/%s,%s, /",$this->lat,$this->lon);
          $newaddress = preg_replace($filter_out,"", $newaddress);
 
