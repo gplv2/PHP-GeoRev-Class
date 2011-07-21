@@ -46,14 +46,18 @@ Class GeoRev {
          'use_nominatim' => 0,
          'use_google' => 0,
          'use_google_v3' => 0,
+         'use_yandex' => 0,
          'sleep_bing' => '2000',
          'sleep_yahoo' => '2000',
          'sleep_google' => '2000',
          'sleep_geonames' => '2000',
          'sleep_nominatim' => '2000',
+         'sleep_yandex' => '2000',
          'mc_compress' => 1,
          'mc_expire' => 500
          );
+
+   // Note yandex doesn't work ...
 
    // This kinda maps what belongs to who
    private $service_variable_map = array (
@@ -61,7 +65,8 @@ Class GeoRev {
          'yahoo' => array('timer_name' => 'ya_timer','sleep_setting' => 'sleep_yahoo'),
          'google' => array('timer_name' => 'go_timer','sleep_setting' => 'sleep_google'),
          'geonames' => array('timer_name' => 'ge_timer','sleep_setting' => 'sleep_geonames'),
-         'nominatim' => array('timer_name' => 'no_timer','sleep_setting' => 'sleep_nominatim')
+         'nominatim' => array('timer_name' => 'no_timer','sleep_setting' => 'sleep_nominatim'),
+         'yandex' => array('timer_name' => 'gp_timer','sleep_setting' => 'sleep_yandex')
          );
 
    // Keep track of what works
@@ -86,6 +91,7 @@ Class GeoRev {
    public $bing_page; 
    public $geonames_page; 
    public $nominatim_page; 
+   public $yandex_page; 
 
    // Dev aid
    public $debug;
@@ -110,6 +116,7 @@ Class GeoRev {
       $auto_settings['can_use_bing']      = !empty($conf_settings['key_bing'])         ? 1 : 0;
       $auto_settings['can_use_geonames']  = !empty($conf_settings['key_geonames'])     ? 1 : 0;
       $auto_settings['can_use_nominatim'] = !empty($conf_settings['key_nominatim'])    ? 1 : 0;
+      $auto_settings['can_use_yandex'] = !empty($conf_settings['key_yandex'])    ? 1 : 0;
 
       // Merge the class defaults with the settings
       $this->settings = array_merge($this->settings, $conf_settings);
@@ -190,21 +197,24 @@ Class GeoRev {
             'hit_geonames',
             'hit_bing',
             'hit_nominatim',
+            'hit_yandex',
             'yahoo_fail',
             'bing_fail',
             'geonames_fail',
             'google_fail',
             'nominatim_fail',
+            'yandex_fail',
             'bing_ok',
             'google_ok',
             'yahoo_ok',
             'geonames_ok',
+            'yandex_ok',
             'nominatim_ok'
             );
       $this->register_counter($init_counters,0);
 
       // timers for the services
-      $init_timers = array ('go_timer','ya_timer','bi_timer','ge_timer','no_timer');
+      $init_timers = array ('go_timer','ya_timer','bi_timer','ge_timer','no_timer','gp_timer');
       $this->register_counter($init_timers,microtime(true));
 
       // $this->debug(__METHOD__, "simple", 1, $this->counters);
@@ -259,12 +269,111 @@ Class GeoRev {
       return $retval;
    }
 
+// GLENN
+   private function revgeocode_yandex() {
+      $this->debug(__METHOD__, "call",5);
+      $tag='yandex';
+
+      // The memcache key , trying to keep it somewhat short
+      $mckey=sprintf("RG%s_%s|%s",strtoupper(substr($tag,0,4)), $this->float_to_small($this->lat), $this->float_to_small($this->lon));
+
+      // Fetch from cache if we can 
+      if(isset($this->MC)){
+         $this->debug(__METHOD__, "simple",3,"Checking cache...");
+         $this->debug(__METHOD__, "simple",3,sprintf("Memcache key %s",$mckey));
+         $cached = $this->MC->get($mckey);
+         $this->counters['memc_get']++;
+         $page = json_decode($cached['contents'],true);
+         if (is_array($page)) {
+            $this->debug(__METHOD__, "simple",3,"Cached data found.");
+            // Seems we have some valid cache data for this service
+            $this->yandex_page=$cached;
+            $this->counters['memc_hit']++;
+            return 1;
+         } else {
+            $this->counters['memc_miss']++;
+         }
+      }
+
+      $this->debug(__METHOD__, "simple",3,"Checking 1 .");
+      if($this->counters['yandex_fail']>$this->settings['yandex_max_fail'] OR !$this->settings['can_use_yandex']) {
+         $this->settings['use_yandex']=0;
+         return "";
+      }
+
+      $this->debug(__METHOD__, "simple",3,"Checking 2 .");
+      if (!empty($this->settings['dryrun'])) {
+         $this->debug(__METHOD__, "simple",5,"Dryrun active, not doing encode now.");
+         return "";
+      }
+
+      $this->debug(__METHOD__, "simple",3,"Checking 3 .");
+      if(empty($this->settings['use_yandex'])) {
+         return "";
+      }
+      $this->debug(__METHOD__, "simple",3,"Checking 4 .");
+
+      // Delay as specified
+      $this->throttle_service($tag);
+      $this->debug( __METHOD__, "simple", 2, sprintf("Encoding with Geoplugin"));
+
+      /* ll=
+         :geocode => query,
+         :format => "json",
+         :plng => "#{Geocoder::Configuration.language}", # supports ru, uk, be
+         :key => Geocoder::Configuration.api_key
+      */
+      $baseurl = "http://geocode-maps.yandex.ru/1.x/?geocode=%s&format=json&plng=uk&key=%s";
+
+      $url = sprintf($baseurl, $this->lat, $this->lon);
+      // $url = sprintf($baseurl, $this->lat, $this->lon, $this->settings['key_yandex']);
+
+      $this->debug( __METHOD__, "simple", 3, sprintf("Geocoding url '%s'", $url));
+      $this->counters['hit_yandex']++;
+
+      /* Do it with curl */
+      $ch = curl_init($url);
+
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
+      $server_output = curl_exec($ch);
+      $curlinfo = curl_getinfo($ch);
+      curl_close($ch);
+
+      $this->debug( __METHOD__, "simple", 5, $curlinfo,1);
+
+      if ($curlinfo['http_code']!=200) {
+         $this->counters['yandex_fail']++;
+         return "";
+      }
+
+      // $this->debug( __METHOD__, "simple", 5, $server_output);
+
+      // "text/javascript; charset=utf-8"
+      $contents = $server_output; 
+      if (preg_match("/utf-8/", strtolower($curlinfo['content_type']), $matches)) {
+         if (!empty($matches[0])) {
+            $this->debug( __METHOD__, "simple", 2, "Encoding utf-8");
+            $contents = utf8_encode($server_output); 
+         }
+      }
+
+      $this->yandex_page = array ('curlinfo' => $curlinfo, 'contents' => $contents);
+      // Store in the cache if we can
+      if(isset($this->MC)){
+         $this->debug(__METHOD__, "simple",2,"Saving in cache");
+         $this->MC->set($mckey, $this->yandex_page, $this->settings['mc_compress'], $this->settings['mc_expire']);
+         $this->counters['memc_set']++;
+      }
+      $this->counters['gp_timer']=microtime(true);
+      return 1;
+   }
+
    private function revgeocode_google () {
       $this->debug(__METHOD__, "call",5);
       $tag='google';
 
       // The memcache key
-      $mckey=sprintf("RG%s_%s|%s",strtoupper(substr($tag,0,2)), $this->float_to_small($this->lat), $this->float_to_small($this->lon));
+      $mckey=sprintf("RG%s_%s|%s",strtoupper(substr($tag,0,4)), $this->float_to_small($this->lat), $this->float_to_small($this->lon));
 
       // Fetch from cache if we can 
       if(isset($this->MC)){
@@ -362,7 +471,7 @@ Class GeoRev {
       $tag='bing';
 
       // The memcache key
-      $mckey=sprintf("RG%s_%s|%s",strtoupper(substr($tag,0,2)), $this->float_to_small($this->lat), $this->float_to_small($this->lon));
+      $mckey=sprintf("RG%s_%s|%s",strtoupper(substr($tag,0,4)), $this->float_to_small($this->lat), $this->float_to_small($this->lon));
 
       // Fetch from cache if we can 
       if(isset($this->MC)){
@@ -478,7 +587,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $tag='yahoo';
 
       // The memcache key
-      $mckey=sprintf("RG%s_%s|%s",strtoupper(substr($tag,0,2)), $this->float_to_small($this->lat), $this->float_to_small($this->lon));
+      $mckey=sprintf("RG%s_%s|%s",strtoupper(substr($tag,0,4)), $this->float_to_small($this->lat), $this->float_to_small($this->lon));
 
       // Fetch from cache if we can 
       if(isset($this->MC)){
@@ -564,7 +673,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $tag='geonames';
 
       // The memcache key
-      $mckey=sprintf("RG%s_%s|%s",strtoupper(substr($tag,0,2)), $this->float_to_small($this->lat), $this->float_to_small($this->lon));
+      $mckey=sprintf("RG%s_%s|%s",strtoupper(substr($tag,0,4)), $this->float_to_small($this->lat), $this->float_to_small($this->lon));
 
       // Fetch from cache if we can 
       if(isset($this->MC)){
@@ -650,7 +759,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $tag='nominatim';
 
       // The memcache key
-      $mckey=sprintf("RG%s_%s|%s",strtoupper(substr($tag,0,2)), $this->float_to_small($this->lat), $this->float_to_small($this->lon));
+      $mckey=sprintf("RG%s_%s|%s",strtoupper(substr($tag,0,4)), $this->float_to_small($this->lat), $this->float_to_small($this->lon));
 
       // Fetch from cache if we can 
       if(isset($this->MC)){
@@ -687,7 +796,10 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $this->throttle_service($tag);
       $this->debug( __METHOD__, "simple", 2, sprintf("Encoding with Nominatim"));
 
-      $baseurl = "http://open.mapquestapi.com/nominatim/v1/reverse?format=json&lat=%s&lon=%s&email=%s";
+      // The standard one
+      //$baseurl = "http://open.mapquestapi.com/nominatim/v1/reverse?format=json&lat=%s&lon=%s&email=%s";
+      // My own, with only belgium covered, this should go into the options really
+		$baseurl = "http://gazzy.byte-consult.be/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s";
       $url = sprintf($baseurl,$this->lat,$this->lon,$this->settings['key_nominatim']);
 
       // $this->debug( __METHOD__, "simple", 3, sprintf("Geocoding url '%s'", $url));
@@ -697,6 +809,8 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $ch = curl_init($url);
 
       curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
+		curl_setopt($ch, CURLOPT_HTTPHEADER,array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
+
       $server_output = curl_exec($ch);
       $curlinfo = curl_getinfo($ch);
       curl_close($ch);
@@ -1343,6 +1457,75 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $this->debug(__METHOD__, "hangup",5);
       return $newaddress;
    }
+
+   public function get_street_name_yandex($lat=null,$lon=null) {
+      $this->debug(__METHOD__, "call",5);
+
+      if(empty($this->settings['use_yandex'])) {
+         return "";
+      }
+
+      if(isset($lat) and isset($lon)) {
+         if(!$this->set_coord($lat,$lon)) {
+            $this->debug(__METHOD__, "simple", 0, sprintf("Bad coordinates lat = %s, lon = %s",$lat,$lon));
+            return "";
+         }
+      } elseif(!isset($this->lat) or !isset($this->lon)) {
+         $this->debug(__METHOD__, "simple", 0, sprintf("Need to set the coordinates first or pass them as lat/lon to function %s",__FUNCTION__));
+         return "";
+      }
+
+      $this->revgeocode_yandex();
+
+      $page = json_decode($this->yandex_page['contents'],true);
+
+      if (!is_array($page)) {
+         $this->debug( __METHOD__, "simple", 0,"Problem reading geocode results. Have you geocoded yet?");
+         return ""; 
+      }
+
+      $this->debug( __METHOD__, "simple", 3,print_r($page,true),1);
+
+      $address="";
+
+      $count = count($page['yandex']);
+      /* Geonames doesn't really have a great way to validate the content so lets try it by counting and checking for a field */
+
+      if ($count > 0) {
+         /* Trying to extract meaningfull data in most cases is hard work trying */
+         $r_address = array();
+         if (isset($page['geonames'][0]['countryCode']) and !empty($page['geonames'][0]['countryCode'])) {
+            $r_address[] = $page['geonames'][0]['countryCode'];
+         }
+         $address=implode(', ',$r_address);
+         // $address = sprintf("%s %s, %s",$page['geonames'][0]['toponymName'], $page['geonames'][0]['countryCode']);
+         // $message = $page['status']['message'];
+      } else {
+         $this->debug( __METHOD__, "simple", 0,"Error parsing yandex data");
+         $this->debug( __METHOD__, "simple", 0,print_r($page,true));
+         return "";
+      }
+
+      $this->debug( __METHOD__, "simple", 3, sprintf("RevGeo = %s|%s result = %s",$this->lat, $this->lon, $this->yandex_page['curlinfo']['http_code']));
+
+      $newaddress="";
+      if ($this->yandex_page['curlinfo']['http_code']==200) {
+         $this->counters['yandex_ok']++;
+         if (strlen($address)>0) {
+            $newaddress=$this->trans->mixed_to_latin1($this->post_filter_address($address));
+            $this->debug( __METHOD__, "simple", 2, sprintf("Yandex encoded is: '%s'.", $newaddress));
+         } else {
+            $this->debug( __METHOD__, "simple", 2, sprintf("Empty address line, check code."));
+         }
+      } else {
+         $this->debug( __METHOD__, "simple", 3, sprintf("Warning, Yandex says : '%s'.", $this->yandex_page['curlinfo']['http_code']));
+         $this->counters['yandex_fail']++;
+         $this->settings['sleep_yandex']=$this->settings['sleep_yandex'] + 500;
+      }
+      $this->debug(__METHOD__, "hangup",5);
+      return $newaddress;
+   }
+
 
    public function debug($func, $type="simple", $level, $message = "", $pad_me = 0) {
       /* If the debugger is disabled, retuns without doing anything */

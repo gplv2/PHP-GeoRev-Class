@@ -9,7 +9,7 @@ I made this to compair them in depth on their quality/results.
 
 #### Main features
 - Can be extended to extract different data from the resultsets instead of a full streetaddress, or adapted to straight address geocoding.
-- Google V2 and V3 supported (Enterprise users)  As an added bonus this supports google V3 Premier ID's too where you need to sign urls.  (so called gme- keys @ google).  They code to sign those is included.
+- Google V2 and V3 supported (Enterprise users)  As an added bonus this supports google V3 Premier ID's too where you need to sign urls.  (so called gme- keys @ google).  The code to sign those is included.
 - Handy timing support to throttle back the requests, not by sleeping a fixed amount but by checking how long ago you've hit that particular engine
 - MemCached supported
 - 5 popular engines supported

@@ -44,7 +44,6 @@ $kick_butt=new GeoRev($conf);
 
 // If you set coordinates once, they are used until you pass new ones, either using set_coord like this and get multiple sources
 $kick_butt->set_coord(52.223254,5.17502);
-$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Nominatim Location = %s",$kick_butt->get_street_name_nominatim()));
 $kick_butt->debug(__METHOD__, "simple", 1, sprintf("Google Location    = %s",$kick_butt->get_street_name_google()));
 $kick_butt->debug(__METHOD__, "simple", 1, sprintf("Geonames Location  = %s",$kick_butt->get_street_name_geonames()));
 $kick_butt->debug(__METHOD__, "simple", 1, sprintf("Bing Location      = %s",$kick_butt->get_street_name_bing()));
@@ -62,6 +61,8 @@ $kick_butt->debug(__METHOD__, "simple", 2, $kick_butt->get_counters(),1);
 // echo $kick_butt->get_street_name_nominatim(43.821324,-82.923615);
 // echo $kick_butt->get_street_name_google(50.974586,4.467527);
 
+// Belgium only coverage for my own server
+$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Nominatim Location = %s", $kick_butt->get_street_name_nominatim(51.023795, 4.539605)));
 
 // Check our raw cached request (curlinfo + output) per engine:
 $kick_butt->debug(__METHOD__, "simple",1, print_r($kick_butt->google_page,true));
