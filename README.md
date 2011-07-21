@@ -164,6 +164,26 @@ It's called 'Small' but it really is a large INT
 
 In database terms. The unsigned is important or it doesn't fit in the int(10).  You don't need to install any GIS support for the database, you can use 2 ints as the PK of the table involved, it will be superfast.  Especially if you use partitioning.
 
+Problems running this?
+======================
+In case you get the following, your PHP is probably not at 5.3 version:
+
+glenn@OBOSQL001:~/glenn$ php -l /home/glenn/glenn/PHP-GeoRev-Class/class.revgeocode.php
+
+Parse error: syntax error, unexpected T_FUNCTION in /home/glenn/glenn/PHP-GeoRev-Class/class.revgeocode.php on line 866
+
+glenn@boboo:~/glenn$ php -v
+PHP 5.2.6-1+lenny9 with Suhosin-Patch 0.9.6.2 (cli) (built: Aug  4 2010 03:25:57) 
+Copyright (c) 1997-2008 The PHP Group
+Zend Engine v2.2.0, Copyright (c) 1998-2008 Zend Technologies
+
+It seems to work here :
+
+glenn@lili:~/PHP-GeoRev-Class$ php -v
+PHP 5.3.5-1ubuntu7 with Suhosin-Patch (cli) (built: Apr 17 2011 13:32:40) 
+Copyright (c) 1997-2009 The PHP Group
+Zend Engine v2.3.0, Copyright (c) 1998-2010 Zend Technologies
+
 Feedback
 ========
 
