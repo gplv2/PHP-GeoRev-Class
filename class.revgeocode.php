@@ -93,6 +93,9 @@ Class GeoRev {
    public $nominatim_page; 
    public $yandex_page; 
 
+   // My own public postal code service AS IS
+   public $gazzy_page; 
+
    // Dev aid
    public $debug;
    public $verbose;
@@ -104,6 +107,11 @@ Class GeoRev {
       } else {
          $this->eol="<BR/>";
       }
+
+      if (!isset($conf_settings)) {
+				echo __METHOD__ . ": config error\n";
+				exit(0);
+			}
 
       /* Prepare this one already */
       $this->trans= new Latin1UTF8();
@@ -118,7 +126,9 @@ Class GeoRev {
       $auto_settings['can_use_nominatim'] = !empty($conf_settings['key_nominatim'])    ? 1 : 0;
       $auto_settings['can_use_yandex'] = !empty($conf_settings['key_yandex'])    ? 1 : 0;
 
+      // print_r($conf_settings);
       // Merge the class defaults with the settings
+			// print_r($conf_settings);exit;
       $this->settings = array_merge($this->settings, $conf_settings);
 
       // Merge the autosettings with the settings
@@ -198,18 +208,21 @@ Class GeoRev {
             'hit_bing',
             'hit_nominatim',
             'hit_yandex',
+            'hit_gazzy',
             'yahoo_fail',
             'bing_fail',
             'geonames_fail',
             'google_fail',
             'nominatim_fail',
             'yandex_fail',
+            'gazzy_fail',
             'bing_ok',
             'google_ok',
             'yahoo_ok',
             'geonames_ok',
             'yandex_ok',
-            'nominatim_ok'
+            'nominatim_ok',
+            'gazzy_ok'
             );
       $this->register_counter($init_counters,0);
 
@@ -328,7 +341,7 @@ Class GeoRev {
       $url = sprintf($baseurl, $this->lat, $this->lon);
       // $url = sprintf($baseurl, $this->lat, $this->lon, $this->settings['key_yandex']);
 
-      $this->debug( __METHOD__, "simple", 3, sprintf("Geocoding url '%s'", $url));
+      $this->debug( __METHOD__, "simple", 2, sprintf("Geocoding url '%s'", $url));
       $this->counters['hit_yandex']++;
 
       /* Do it with curl */
@@ -366,6 +379,53 @@ Class GeoRev {
       }
       $this->counters['gp_timer']=microtime(true);
       return 1;
+   }
+
+   public function getpostcodeinfo($postcode){
+      $tag='gzzy';
+
+      // The memcache key
+      $mckey=sprintf("ZZ%s_%s|%s",strtoupper(substr($tag,0,4)), $this->float_to_small($this->lat), $this->float_to_small($this->lon));
+
+      $this->debug(__METHOD__, "call",5);
+      //$url="http://gazzy.byte-consult.be/postcode.php?format=json&postcode=7100&accept-language=nl,en;q=0.8,fr;q=0.5";
+      $url=sprintf("http://gazzy.byte-consult.be/postcode.php?format=json&postcode=%d&accept-language=nl,en;q=0.8,fr;q=0.5",$postcode);
+      $this->debug( __METHOD__, "simple", 2, sprintf("Requesting postcode information from url '%s'", $url));
+      $this->counters['hit_gazzy']++;
+
+      /* Do it with curl */
+      $ch = curl_init($url);
+
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
+      $server_output = curl_exec($ch);
+      $curlinfo = curl_getinfo($ch);
+      curl_close($ch);
+
+      $this->debug( __METHOD__, "simple", 5, $curlinfo,1);
+
+      if ($curlinfo['http_code']!=200) {
+         $this->counters['gazzy_fail']++;
+         return "";
+      }
+      // $this->debug( __METHOD__, "simple", 5, $server_output);
+
+      // "text/javascript; charset=utf-8"
+      $contents = $server_output; 
+      if (preg_match("/utf-8/", strtolower($curlinfo['content_type']), $matches)) {
+         if (!empty($matches[0])) {
+            $this->debug( __METHOD__, "simple", 2, "Encoding utf-8");
+            $contents = utf8_encode($server_output); 
+         }
+      }
+
+      $this->gazzy_page = array ('curlinfo' => $curlinfo, 'contents' => $contents);
+      // Store in the cache if we can
+      if(isset($this->MC)){
+         $this->debug(__METHOD__, "simple",2,"Saving in cache");
+         $this->MC->set($mckey, $this->gazzy_page, $this->settings['mc_compress'], $this->settings['mc_expire']);
+         $this->counters['memc_set']++;
+      }
+      return($contents);
    }
 
    private function revgeocode_google () {
@@ -560,7 +620,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          return "";
       }
 
-      // $this->debug( __METHOD__, "simple", 5, $server_output);
+       $this->debug( __METHOD__, "simple", 5, $server_output);
       // "text/javascript; charset=utf-8"
       $contents = $server_output; 
       if (preg_match("/utf-8/", strtolower($curlinfo['content_type']), $matches)) {
@@ -779,13 +839,15 @@ Not-for-profit: Application is used by a tax-exempt organization.
          }
       }
 
+      /*
       if($this->counters['nominatim_fail']>$this->settings['nominatim_max_fail'] OR !$this->settings['can_use_nominatim']) {
          $this->settings['use_nominatim']=0;
          return "";
       }
+       */
 
       if (!empty($this->settings['dryrun'])) {
-         $this->debug(__METHOD__, "simple",5,"Dryrun active, not doing encode now.");
+         $this->debug(__METHOD__, "simple",1,"Dryrun active, not doing encode now.");
          return "";
       }
 
@@ -799,10 +861,10 @@ Not-for-profit: Application is used by a tax-exempt organization.
       // The standard one
       //$baseurl = "http://open.mapquestapi.com/nominatim/v1/reverse?format=json&lat=%s&lon=%s&email=%s";
       // My own, with only belgium covered, this should go into the options really
-		$baseurl = "http://gazzy.byte-consult.be/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s";
+		$baseurl = "http://gazzy.byte-consult.be/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5";
       $url = sprintf($baseurl,$this->lat,$this->lon,$this->settings['key_nominatim']);
 
-      // $this->debug( __METHOD__, "simple", 3, sprintf("Geocoding url '%s'", $url));
+      $this->debug( __METHOD__, "simple", 2, sprintf("Geocoding url '%s'", $url));
       $this->counters['hit_nominatim']++;
 
       /* Do it with curl */
@@ -855,13 +917,25 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $location = preg_replace("/ Netherlands/"," NL", $location);
       $location = preg_replace("/ France/"," FR", $location);
       $location = preg_replace("/ Ghent/"," Gent", $location);
-      $location = preg_replace("/ Antwerp/"," Antwerpen", $location);
+      $location = preg_replace("/ Antwerp$/"," Antwerpen", $location);
       $location = preg_replace("/ Arrondissement/","", $location);
+      $location = preg_replace("/^, BE$/","", $location);
+      $location = preg_replace("/^, LU$/","", $location);
+      $location = preg_replace("/^, FR$/","", $location);
+      $location = preg_replace("/^, NL$/","", $location);
+      $location = preg_replace("/^, DE$/","", $location);
+      $location = preg_replace("/^BE$/","", $location);
+      $location = preg_replace("/^NL$/","", $location);
+      $location = preg_replace("/^FR$/","", $location);
+      $location = preg_replace("/^UK$/","", $location);
+      $location = preg_replace("/^DE$/","", $location);
+      $location = preg_replace("/^LU$/","", $location);
       $location = preg_replace("/Province/","", $location);
       $this->debug(__METHOD__, "hangup",5);
       return(trim($location));
    }
 
+/*
    public static function json_printable_encode($in, $indent = 3, $from_array = false) {
       $_escape = function ($str)
       {
@@ -898,7 +972,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       return $out;
    }
-
+*/
 
    // Google V3 functions
    public static function encode_base64_url_safe($value) {
@@ -1056,6 +1130,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       if (!is_array($page)) {
          $this->debug( __METHOD__, "simple", 0,"Problem reading geocode results. Have you geocoded yet?");
+         $this->debug( __METHOD__, "simple", 0,sprintf("%s",$page));
          return ""; 
       }
 
@@ -1118,7 +1193,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       if (strcmp($status, "200") == 0) {
          // Successful geocode, google we use 1 col to get what we want
          $newaddress=trim(utf8_decode($page['Placemark'][0]['address']));
-         $newaddress=$this->trans->mixed_to_latin1($this->post_filter_address($newaddress));
+         $newaddress=$this->trans->mixed_to_utf8($this->post_filter_address($newaddress));
 
          //         if (preg_match('/\d+ \/ \w+/', $newaddress, $matches)) {
          //            if (empty($matches[0])) {
@@ -1176,7 +1251,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          return ""; 
       }
 
-      $this->debug( __METHOD__, "simple", 3,print_r($page,true),1);
+      $this->debug( __METHOD__, "simple", 2,print_r($page,true),1);
 
       $count = count($page['resourceSets']);
 
@@ -1191,7 +1266,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $newaddress="";
       if ($this->bing_page['curlinfo']['http_code']==200) {
          $this->counters['bing_ok']++;
-         $newaddress=$this->trans->mixed_to_latin1($this->post_filter_address($address));
+         $newaddress=$this->trans->mixed_to_utf8($this->post_filter_address($address));
 
          // "51.0801183333,4.41619666667, Rumst, BE"
          $filter_out=sprintf("/%s,%s, /",$this->lat,$this->lon);
@@ -1200,6 +1275,71 @@ Not-for-profit: Application is used by a tax-exempt organization.
          if (strlen($newaddress)<1) {
             $newaddress=NULL;
          }
+         //  '7100, BE'.
+         if (preg_match('/^([0-9]{4}), BE$/',$newaddress,$match)) {
+            $pc = $match[1];
+            $place=$this->getpostcodeinfo($pc);
+            //$this->debug( __METHOD__, "simple", 1, print_r($place,true));
+            $contents = utf8_encode($place); 
+            $pp= json_decode($place,true);
+            //print_r($pp);
+/*
+            Array
+               (
+                  [status] => Array
+                  (
+                     [code] => 200
+                     [message] => Found multiple records
+                     [found] => 4
+                  )
+
+                  [place] => Array
+                  (
+                     [0] => Array
+                     (
+                        [postcode] => 9130
+                        [city] => Doel
+                     )
+
+                     [1] => Array
+                     (
+                        [postcode] => 9130
+                        [city] => Verrebroek
+                     )
+
+                     [2] => Array
+                     (
+                        [postcode] => 9130
+                        [city] => Kallo (Kieldrecht)
+                     )
+
+                     [3] => Array
+                     (
+                        [postcode] => 9130
+                        [city] => Kieldrecht (Beveren)
+                     )
+
+                  )
+
+               )
+ */
+
+            $newaddress = sprintf("%d %s, BE",$pc,$pp['place'][0]['city']);
+         } elseif (preg_match('/^(.+), ([0-9]{4}), BE$/',$newaddress,$match)) {
+            // 'Kiefhoekstraat, 3941, BE'.
+            $pc = $match[2];
+            $street = $match[1];
+            $place=$this->getpostcodeinfo($pc);
+            //$this->debug( __METHOD__, "simple", 1, print_r($place,true));
+            // print_r($place);
+            // print $place;
+            //$newaddress = sprintf("%d %s, BE",$pc,$place['place'][0]=>'city']);
+            //$this->debug( __METHOD__, "simple", 1, print_r($place,true));
+            $contents = utf8_encode($place); 
+            $pp= json_decode($place,true);
+            $newaddress = sprintf("%d %s, BE",$street,$pc,$pp['place'][0]['city']);
+         }
+
          $this->debug( __METHOD__, "simple", 2, sprintf("Bing encoded is: '%s'.", $newaddress));
       } elseif ($status>0){
          /* We are hitting a query problem, just skip this record */
@@ -1255,7 +1395,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       if ($status==0) {
          $this->counters['yahoo_ok']++;
          // Successful geocode
-         $newaddress=trim($this->trans->mixed_to_latin1($this->post_filter_address($address)));
+         $newaddress=trim($this->trans->mixed_to_utf8($this->post_filter_address($address)));
          /* When yahoo doesn't know the street for sure it just returns the coordinates it received 
           * and places this in the 'name' field where we otherwise get our streetname from , isn't that great.  So we need to filter these out 
           * [name] => 42.510327,-89.937513
@@ -1357,7 +1497,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       if ($this->geonames_page['curlinfo']['http_code']==200) {
          $this->counters['geonames_ok']++;
          if (strlen($address)>0) {
-            $newaddress=$this->trans->mixed_to_latin1($this->post_filter_address($address));
+            $newaddress=$this->trans->mixed_to_utf8($this->post_filter_address($address));
             $this->debug( __METHOD__, "simple", 2, sprintf("Geonames encoded is: '%s'.", $newaddress));
          } else {
             $this->debug( __METHOD__, "simple", 2, sprintf("Empty address line, check code."));
@@ -1394,43 +1534,124 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       if (!is_array($page)) {
          $this->debug( __METHOD__, "simple", 0,"Problem reading geocode results. Have you geocoded yet?");
+         $this->debug( __METHOD__, "simple", 0,sprintf("%s",$page));
          return ""; 
       }
 
-      $this->debug( __METHOD__, "simple", 3,print_r($page,true),1);
+      $this->debug( __METHOD__, "simple", 2,print_r($page,true),1);
 
       /* Nominatim is much more straightforward to decode */
       if (isset($page['address'])) {
          $r_address = array();
-         if (isset($page['address']['road']) and !empty($page['address']['road'])) {
-            $r_address[] = $page['address']['road'];
+         // Get the street if its there
+         //
+         // 2011-07-28 15:09:44:[3]- [GeoRev::get_street_name_nominatim()]             [road] => Rue De Rudder - De Rudderstraat
+         // 2011-07-28 15:09:44:[3]- [GeoRev::get_street_name_nominatim()]             [town] => Sint-Jans-Molenbeek
+         // 2011-07-28 15:09:44:[3]- [GeoRev::get_street_name_nominatim()]             [city] => Sint-Jans-Molenbeek
+         // 2011-07-28 15:09:44:[3]- [GeoRev::get_street_name_nominatim()]             [state district] => Franse Gemeenschap
+         // 2011-07-28 15:09:44:[3]- [GeoRev::get_street_name_nominatim()]             [state] => Brussels Hoofdstedelijk Gewest
+         // 2011-07-28 15:09:44:[3]- [GeoRev::get_street_name_nominatim()]             [country] => BelgiÃ«
+         // 2011-07-28 15:09:44:[3]- [GeoRev::get_street_name_nominatim()]             [country_code] => be
+         // 2011-07-28 15:09:44:[3]- [GeoRev::get_street_name_nominatim()]             [postcode] => 1080
+         //
+         //
+         // 2011-07-28 16:09:42:[2]- [GeoRev::get_street_name_nominatim()]             [road] => Grote Mierenstraat
+         // 2011-07-28 16:09:42:[2]- [GeoRev::get_street_name_nominatim()]             [village] => Heffen
+         // 2011-07-28 16:09:42:[2]- [GeoRev::get_street_name_nominatim()]             [city] => Mechelen
+         // 2011-07-28 16:09:42:[2]- [GeoRev::get_street_name_nominatim()]             [boundary] => Brabantse Beek
+         // 2011-07-28 16:09:42:[2]- [GeoRev::get_street_name_nominatim()]             [country] => BelgiÃ«
+         // 2011-07-28 16:09:42:[2]- [GeoRev::get_street_name_nominatim()]             [country_code] => be
+         // 2011-07-28 16:09:42:[2]- [GeoRev::get_street_name_nominatim()]             [postcode] => 2801
+         //
+         if (isset($page['address']['house_number']) and !empty($page['address']['house_number'])) {
+            $house_number = $page['address']['house_number'];
          }
-         /* but you need to cover for stuff like 'hamlet', 'city','village' etc ... */
-         if (isset($page['address']['postcode']) and !empty($page['address']['postcode'])) {
-            $where_is_i="";
-            if (!empty($page['address']['city'])) {
-               $where_is_i=$page['address']['city'];
-            } elseif (!empty($page['address']['hamlet'])) {
-               $where_is_i=$page['address']['hamlet'];
-            } elseif (!empty($page['address']['village'])) {
-               $where_is_i=$page['address']['village'];
-            } else {
-               $where_is_i=$page['address'][1];
-            }
-            $r_address[] = $page['address']['postcode'] . " " . $where_is_i;
+         // 011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()] ( 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [place_id] => 305729 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [licence] => Data Copyright OpenStreetMap Contributors, Some Rights Reserved. CC-BY-SA 2.0. 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [osm_type] => way 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [osm_id] => 52403773 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [display_name] => De Dageraad, 7, Heiveldekens, Kontich, Waarloos, Mechelen, Brabantse Beek, BelgiÃ« 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [address] => Array 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]         ( 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [house_number] => 7 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [house] => De Dageraad 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [road] => Heiveldekens 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [city district] => Kontich 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [village] => Waarloos 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [city] => Kontich 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [boundary] => Brabantse Beek 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [country] => BelgiÃ« 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [country_code] => be 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [postcode] => 2550 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]         ) 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]  
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()] ) 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()] Array 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()] ( 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [0] => Heiveldekens7 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [1] => 2550 Kontich 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [2] => BE 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()] ) 
+         //
+         if (strlen($house_number)>0) { 
+            $house_number = sprintf(" %s",$house_number);
          } else {
-            if (!empty($page['address']['suburb'])) {
-               $r_address[] = $page['address']['suburb'];
-            } elseif (!empty($page['address']['city'])) {
-               $r_address[] = $page['address']['city'];
-            } else {
-               $r_address[] = $page['address']['state'];
+            $house_number = '';
+         }
+
+         if (isset($page['address']['road']) and !empty($page['address']['road'])) {
+            $r_address[] = ($page['address']['road']  . $house_number);
+         } elseif (isset($page['address']['path']) and !empty($page['address']['path'])) {
+            $r_address[] = ($page['address']['path']  . $house_number);
+         } elseif (isset($page['address']['raceway']) and !empty($page['address']['raceway'])) {
+            $r_address[] = ($page['address']['raceway'] . $house_number);
+         } elseif (isset($page['address']['canal']) and !empty($page['address']['canal'])) {
+            $r_address[] = ($page['address']['canal'] . $house_number);
+         } elseif (isset($page['address']['industrial']) and !empty($page['address']['industrial'])) {
+            $r_address[] = ($page['address']['industrial'] . $house_number);
+         }
+
+         $before_citystuff=count($r_address);
+         // Get whatver its called as the place name
+         /* but you need to cover for stuff like 'hamlet', 'city','village' etc ... */
+         $place="";
+         $continue=true;
+         $this->debug( __METHOD__, "simple", 3,print_r($page['address'],true),1);
+         foreach($page['address'] as $key => $val) {
+            //$this->debug( __METHOD__, "simple", 1, sprintf("%s => %s",$key,$val));
+            if (in_array($key, array('town','village', 'city', 'city district','suburb', 'hamlet','locality')) and !empty($continue)) {
+               if (isset($page['address']['postcode']) and strtolower($page['address']['country_code'])=='be') {
+                  if (!empty($val)) {
+                     $r_address[]= sprintf("%s %s",$page['address']['postcode'],$val);
+                     $continue=false;
+                     break;
+                  } 
+               }
             }
          }
-         if (isset($page['address']['country_code']) and !empty($page['address']['country_code'])) {
-            $r_address[] = strtoupper($page['address']['country_code']);
+
+         $after_citystuff=count($r_address);
+         
+         // Get the country, its always there it seems
+         if ($after_citystuff > $before_citystuff) {
+            // We only have a road so far (maybe).... thats not good.
+            if (isset($page['address']['country_code']) and !empty($page['address']['country_code'])) {
+               $r_address[] = strtoupper($page['address']['country_code']);
+            } else {
+               $r_address = array();
+            }
+         } else {
+            $r_address = array();
          }
-         $address=implode(', ',$r_address);
+
+         $this->debug( __METHOD__, "simple", 2,print_r($r_address,true),1);
+
+         if (is_array($r_address) and count($r_address)>0) {
+            $address=implode(', ',$r_address);
+         } else {
+            $address="";
+         }
       } else {
          $this->debug( __METHOD__, "simple", 1, sprintf("Cannot determine streetname."));
          return "";
@@ -1441,7 +1662,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $newaddress="";
       if ($this->nominatim_page['curlinfo']['http_code']==200) {
          $this->counters['nominatim_ok']++;
-         $newaddress=$this->trans->mixed_to_latin1($this->post_filter_address($address));
+         $newaddress=$this->trans->mixed_to_utf8($this->post_filter_address($address));
 
          // "51.0801183333,4.41619666667, Rumst, BE"
          $filter_out=sprintf("/%s,%s, /",$this->lat,$this->lon);
@@ -1454,6 +1675,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          $this->counters['nominatim_fail']++;
          $this->settings['sleep_nominatim']=$this->settings['sleep_nominatim'] + 500;
       }
+      $this->debug( __METHOD__, "simple", 2, sprintf("Newaddress is: '%s'.", $newaddress));
       $this->debug(__METHOD__, "hangup",5);
       return $newaddress;
    }
@@ -1512,7 +1734,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       if ($this->yandex_page['curlinfo']['http_code']==200) {
          $this->counters['yandex_ok']++;
          if (strlen($address)>0) {
-            $newaddress=$this->trans->mixed_to_latin1($this->post_filter_address($address));
+            $newaddress=$this->trans->mixed_to_utf8($this->post_filter_address($address));
             $this->debug( __METHOD__, "simple", 2, sprintf("Yandex encoded is: '%s'.", $newaddress));
          } else {
             $this->debug( __METHOD__, "simple", 2, sprintf("Empty address line, check code."));
@@ -1582,6 +1804,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
                   $nested=0;
                }
             }
+                  $nested=0;
             // This is overkill, we can use json pretty print function for this
             if ($nested) {
                if ($type == "stderr") {
