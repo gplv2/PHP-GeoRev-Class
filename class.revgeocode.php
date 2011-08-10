@@ -485,7 +485,7 @@ Class GeoRev {
          $this->debug(__METHOD__, "simple" , 5, sprintf("Google v2"));
       }
 
-      //$this->debug( __METHOD__, "simple", 3, sprintf("Geocoding url '%s'", $url));
+      $this->debug( __METHOD__, "simple", 2, sprintf("Geocoding url '%s'", $url));
       $this->counters['hit_google']++;
 
       /* Do it with curl */
@@ -580,7 +580,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $baseurl = "http://dev.virtualearth.net/REST/v1/Locations/%s,%s?o=json&key=%s";
       $url = sprintf($baseurl,$this->lat,$this->lon,$this->settings['key_bing']);
 
-      // $this->debug( __METHOD__, "simple", 3, sprintf("Geocoding url '%s'", $url));
+      $this->debug( __METHOD__, "simple", 2, sprintf("Geocoding url '%s'", $url));
       $this->counters['hit_bing']++;
 
       /* Do it with curl */
@@ -685,9 +685,9 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       /* http://where.yahooapis.com/geocode?q=%1$s,+%2$s&gflags=R&appid=[yourappidhere] */
       $baseurl = "http://where.yahooapis.com/geocode?q=";
-      $url = $baseurl . $this->lat .",".$this->lon."&gflags=R&flags=J&appid=" . $this->settings['key_yahoo'];
+      $url = $baseurl . $this->lat .",".$this->lon."&gflags=R&flags=J&appid=" . $this->settings['key_yahoo'] . "&locale=nl";
 
-      // $this->debug( __METHOD__, "simple", 0, sprintf("Geocoding url '%s'", $url));
+      $this->debug( __METHOD__, "simple", 2, sprintf("Geocoding url '%s'", $url));
       $this->counters['hit_yahoo']++;
 
       /* Do it with curl */
@@ -774,7 +774,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       $baseurl = "http://api.geonames.org/findNearbyPlaceNameJSON?lat=%s&lng=%s&username=%s&style=full";
       $url = sprintf($baseurl,$this->lat,$this->lon,$this->settings['key_geonames']);
-      // $this->debug( __METHOD__, "simple", 3, sprintf("Geocoding url '%s'", $url));
+      $this->debug( __METHOD__, "simple", 2, sprintf("Geocoding url '%s'", $url));
       $this->counters['hit_geonames']++;
 
       /* Do it with curl */
@@ -871,7 +871,13 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $ch = curl_init($url);
 
       curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
-		curl_setopt($ch, CURLOPT_HTTPHEADER,array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
+      curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
+
+      $useragent="PHP_Curl";
+      // set user agent
+      curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
+
+      // $useragent="Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.1) Gecko/20061204 Firefox/2.0.0.1";
 
       $server_output = curl_exec($ch);
       $curlinfo = curl_getinfo($ch);
@@ -931,11 +937,15 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $location = preg_replace("/^DE$/","", $location);
       $location = preg_replace("/^LU$/","", $location);
       $location = preg_replace("/Province/","", $location);
+      $location = preg_replace("/^,$/","", $location);
       $this->debug(__METHOD__, "hangup",5);
       return(trim($location));
    }
 
 /*
+ *
+ * This function only works in 5.3 PHP
+ *
    public static function json_printable_encode($in, $indent = 3, $from_array = false) {
       $_escape = function ($str)
       {
@@ -1134,7 +1144,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          return ""; 
       }
 
-      $this->debug( __METHOD__, "simple", 3,print_r($page,true),1);
+      $this->debug( __METHOD__, "simple", 2,print_r($page,true),1);
 
       // We can easily perform more in depth checks with google
       $status = $page['Status']['code'];
@@ -1377,7 +1387,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          return ""; 
       }
 
-      $this->debug( __METHOD__, "simple", 3,print_r($page,true),1);
+      $this->debug( __METHOD__, "simple", 2,print_r($page,true),1);
 
       $status = $page['ResultSet']['Error'];
       $message = $page['ResultSet']['ErrorMessage'];
@@ -1445,7 +1455,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          return ""; 
       }
 
-      $this->debug( __METHOD__, "simple", 3,print_r($page,true),1);
+      $this->debug( __METHOD__, "simple", 2,print_r($page,true),1);
 
       $address="";
 
@@ -1706,7 +1716,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          return ""; 
       }
 
-      $this->debug( __METHOD__, "simple", 3,print_r($page,true),1);
+      $this->debug( __METHOD__, "simple", 2,print_r($page,true),1);
 
       $address="";
 
