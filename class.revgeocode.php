@@ -861,7 +861,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       // The standard one
       //$baseurl = "http://open.mapquestapi.com/nominatim/v1/reverse?format=json&lat=%s&lon=%s&email=%s";
       // My own, with only belgium covered, this should go into the options really
-		$baseurl = "http://gazzy.byte-consult.be/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5";
+		$baseurl = "http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5";
       $url = sprintf($baseurl,$this->lat,$this->lon,$this->settings['key_nominatim']);
 
       $this->debug( __METHOD__, "simple", 2, sprintf("Geocoding url '%s'", $url));
@@ -1622,6 +1622,8 @@ Not-for-profit: Application is used by a tax-exempt organization.
             $r_address[] = ($page['address']['industrial'] . $house_number);
          }
 
+         // print_r($r_address);
+
          $before_citystuff=count($r_address);
          // Get whatver its called as the place name
          /* but you need to cover for stuff like 'hamlet', 'city','village' etc ... */
@@ -1636,6 +1638,18 @@ Not-for-profit: Application is used by a tax-exempt organization.
                      $r_address[]= sprintf("%s %s",$page['address']['postcode'],$val);
                      $continue=false;
                      break;
+                  } 
+               } elseif (strtolower($page['address']['country_code'])!='be') {
+                     // echo "GLENN\n";
+                  if (!empty($val)) {
+                     if(isset($page['address']['postcode'])) {
+                        $r_address[]= sprintf("%s %s",$page['address']['postcode'],$val);
+                        $continue=false;
+                        break;
+                     } else {
+                        $r_address[]= sprintf("%s",$val);
+                        break;
+                     }
                   } 
                }
             }
