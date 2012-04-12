@@ -1108,10 +1108,12 @@ Not-for-profit: Application is used by a tax-exempt organization.
       if ($interval_since_last < $minimum_sleep) {
          $wait = $minimum_sleep - $interval_since_last;
          //$this->debug( __METHOD__, "simple", 0, array ('now'=> microtime(true), 'bi_timer'=> $this->counters['bi_timer'], 'interval'=> $interval_since_last, 'min'=> $minimum_sleep, 'wait'=> $wait), 2);
-         $this->debug( __METHOD__, "simple", 4, sprintf("Sleeping for %dus",$wait));
+         $this->debug( __METHOD__, "simple", 3, sprintf("Delaying call for %dus",$wait));
          usleep($wait);
          // $spare = $interval_since_last - $minimum_sleep;
          // $this->debug( __METHOD__, "simple", 0, sprintf("Not waiting , spare %s time is %s us",$service_name, $spare));
+      } else {
+         $this->debug( __METHOD__, "simple", 3, sprintf("Been longer than %ss",$this->settings[$sleep_service]));
       }
       $this->debug(__METHOD__, "hangup",5);
       return 1;
