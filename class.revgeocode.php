@@ -772,7 +772,13 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $this->throttle_service($tag);
       $this->debug( __METHOD__, "simple", 2, sprintf("Encoding with GeoNames JSON API"));
 
-      $baseurl = "http://api.geonames.org/findNearbyPlaceNameJSON?lat=%s&lng=%s&username=%s&style=full";
+      #$baseurl = "http://api.geonames.org/findNearbyPlaceNameJSON?lat=%s&lng=%s&username=%s&style=full";
+      $baseurl = "http://api.geonames.org/findNearbyStreetsOSMJSON?lat=%s&lng=%s&username=%s&style=full";
+      # http://api.geonames.org/findNearbyPlaceNameJSON?lat=50.974383&lng=4.467943&username=demo
+      # 51.158705&lon=4.99776166667
+      # view-source:http://api.geonames.org/findNearbyStreetsOSMJSON?lat=51.158705&lng=4.99776166667&username=demo%20%2051.158705&lon=4.99776166667
+      # http://api.geonames.org/findNearbyStreetsOSMJSON?lat=51.158705&lng=4.99776166667&username=demo%20%2051.158705&lon=4.99776166667
+
       $url = sprintf($baseurl,$this->lat,$this->lon,$this->settings['key_geonames']);
       $this->debug( __METHOD__, "simple", 2, sprintf("Geocoding url '%s'", $url));
       $this->counters['hit_geonames']++;
@@ -1136,6 +1142,8 @@ Not-for-profit: Application is used by a tax-exempt organization.
          return "";
       }
 
+      $this->debug(__METHOD__, "simple", 1, sprintf("Checking coordinates lat = %s, lon = %s",$this->lat, $this->lon));
+
       $this->revgeocode_google();
 
       $page = json_decode($this->google_page['contents'],true);
@@ -1253,6 +1261,8 @@ Not-for-profit: Application is used by a tax-exempt organization.
          $this->debug(__METHOD__, "simple", 0, sprintf("Need to set the coordinates first or pass them as lat/lon to function %s",__FUNCTION__));
          return "";
       }
+
+      $this->debug(__METHOD__, "simple", 1, sprintf("Checking coordinates lat = %s, lon = %s",$this->lat, $this->lon));
 
       $this->revgeocode_bing();
 
@@ -1380,6 +1390,8 @@ Not-for-profit: Application is used by a tax-exempt organization.
          return "";
       }
 
+      $this->debug(__METHOD__, "simple", 1, sprintf("Checking coordinates lat = %s, lon = %s",$this->lat, $this->lon));
+
       $this->revgeocode_yahoo();
 
       $page = json_decode($this->yahoo_page['contents'],true);
@@ -1448,7 +1460,11 @@ Not-for-profit: Application is used by a tax-exempt organization.
          return "";
       }
 
+      $this->debug(__METHOD__, "simple", 1, sprintf("Checking coordinates lat = %s, lon = %s",$this->lat, $this->lon));
+
       $this->revgeocode_geonames();
+
+      //var_dump($this->geonames_page['contents']); exit;
 
       $page = json_decode($this->geonames_page['contents'],true);
 
@@ -1461,39 +1477,47 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       $address="";
 
-      $count = count($page['geonames']);
+
+         //var_dump($page['streetSegment']); exit(1);
+      if (empty($page['streetSegment'])) {
+         $this->debug( __METHOD__, "simple", 0,"Nothing found for coordinates.");
+         return ""; 
+         //var_dump($page['streetSegment']); exit(1);
+      }
+
+      $count = count($page['streetSegment']);
       /* Geonames doesn't really have a great way to validate the content so lets try it by counting and checking for a field */
+      $this->debug( __METHOD__, "simple", 2,sprintf("Count = %d", $count));
 
       if ($count > 0) {
-         /* Trying to extract meaningfull data in most cases is hard work trying */
+         /* Trying to extract meaningfull data is a lot easier now from geonames with their OSM coverage!  Woohoo */
          $r_address = array();
-         if (isset($page['geonames'][0]['adminName4']) and !empty($page['geonames'][0]['adminName4'])) {
-            if (isset($page['geonames'][0]['name']) and !empty($page['geonames'][0]['name'])) {
-               $r_address[] = $page['geonames'][0]['name'];
-            } else {
-               $r_address[] = $page['geonames'][0]['adminName4'];
+
+/*
+2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [ref] => N267
+2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [distance] => 0.07
+2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [highway] => secondary
+2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [name] => Damstraat
+2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [oneway] => true
+2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [line] => 4.4663719 50.9747971,4.4670574 50.9747205
+2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [maxspeed] => 50
+*/
+         $closest =(float)100;
+         foreach ($page['streetSegment'] as $street ) {
+            if (isset($street['distance'])) {
+               if ($street['distance'] < $closest) {
+                  if (!empty($street['name']) OR !empty($street['ref'])) {
+                     if (empty($street['ref'])) {
+                        $name = $street['name'];
+                     } else {
+                        $name = sprintf("%s (%s)", $street['name'], $street['ref']);
+                     }
+                     $r_address = array ( $name );
+                  }
+               }
             }
          }
 
-         if (isset($page['geonames'][0]['alternateNames']) and is_array($page['geonames'][0]['alternateNames'])) {
-            if (isset($page['geonames'][0]['alternateNames']['name']) and isset($page['geonames'][0]['alternateNames']['lang'])=='post') {
-# This is really the postal code
-               $r_address[] = $page['geonames'][0]['alternateNames']['name'];
-            }
-         }
-
-         if (isset($page['geonames'][0]['adminName3']) and !empty($page['geonames'][0]['adminName3'])) {
-            $r_address[] = $page['geonames'][0]['adminName3'];
-         }
-         if (isset($page['geonames'][0]['adminName2']) and !empty($page['geonames'][0]['adminName2'])) {
-            $r_address[] = $page['geonames'][0]['adminName2'];
-         }
-         if (isset($page['geonames'][0]['adminName1']) and !empty($page['geonames'][0]['adminName1'])) {
-            $r_address[] = $page['geonames'][0]['adminName1'];
-         }
-         if (isset($page['geonames'][0]['countryCode']) and !empty($page['geonames'][0]['countryCode'])) {
-            $r_address[] = $page['geonames'][0]['countryCode'];
-         }
          $address=implode(', ',$r_address);
          // $address = sprintf("%s %s, %s",$page['geonames'][0]['toponymName'], $page['geonames'][0]['countryCode']);
          // $message = $page['status']['message'];
@@ -1506,6 +1530,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $this->debug( __METHOD__, "simple", 3, sprintf("RevGeo = %s|%s result = %s",$this->lat, $this->lon, $this->geonames_page['curlinfo']['http_code']));
 
       $newaddress="";
+
       if ($this->geonames_page['curlinfo']['http_code']==200) {
          $this->counters['geonames_ok']++;
          if (strlen($address)>0) {
@@ -1539,6 +1564,8 @@ Not-for-profit: Application is used by a tax-exempt organization.
          $this->debug(__METHOD__, "simple", 0, sprintf("Need to set the coordinates first or pass them as lat/lon to function %s",__FUNCTION__));
          return "";
       }
+
+      $this->debug(__METHOD__, "simple", 1, sprintf("Checking coordinates lat = %s, lon = %s",$this->lat, $this->lon));
 
       $this->revgeocode_nominatim();
 
@@ -1708,6 +1735,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
    public function get_street_name_yandex($lat=null,$lon=null) {
       $this->debug(__METHOD__, "call",5);
+      /* NOT FINISHED */
 
       if(empty($this->settings['use_yandex'])) {
          return "";
@@ -1722,6 +1750,8 @@ Not-for-profit: Application is used by a tax-exempt organization.
          $this->debug(__METHOD__, "simple", 0, sprintf("Need to set the coordinates first or pass them as lat/lon to function %s",__FUNCTION__));
          return "";
       }
+
+      $this->debug(__METHOD__, "simple", 1, sprintf("Checking coordinates lat = %s, lon = %s",$this->lat, $this->lon));
 
       $this->revgeocode_yandex();
 

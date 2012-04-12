@@ -7,19 +7,19 @@ require_once("class.revgeocode.php");
 // This array can come from anywhere, but this is what the format looks like ...
 $conf = array( 
       'debug' => '1',
-      'verbose' => '1',
-      'use_yahoo' => '1',
-      'use_bing' => '1',
+      'verbose' => '2',
+      'use_yahoo' => '0',
+      'use_bing' => '0',
       'use_geonames' => '1',
-      'use_nominatim' => '1',
-      'use_google' => '1',
-      'use_google_v3' => '1',
+      'use_nominatim' => '0',
+      'use_google' => '0',
+      'use_google_v3' => '0',
       'sleep_bing' => '2000',
       'sleep_yahoo' => '2000',
       'sleep_google' => '2000',
       'sleep_geonames' => '2000',
       'sleep_nominatim' => '2000',
-      'key_geonames' => '[ENTER_GEONAMES_USERNAME_HERE]',
+      'key_geonames' => 'demo',
       'key_yahoo' => '[ENTER_YAHOO_KEY_HERE]',
       'key_bing' => '[ENTER_BING_KEY_HERE]',
       'key_google' => '[GOOGLE_MAPS_V2_KEY]',
@@ -43,14 +43,15 @@ $conf = array(
 $kick_butt=new GeoRev($conf);
 
 // If you set coordinates once, they are used until you pass new ones, either using set_coord like this and get multiple sources
-$kick_butt->set_coord(52.223254,5.17502);
-$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Google Location    = %s",$kick_butt->get_street_name_google()));
+//$kick_butt->set_coord(52.223254,5.17502);
+$kick_butt->set_coord(50.974383,4.467943);
+//$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Google Location    = %s",$kick_butt->get_street_name_google()));
 $kick_butt->debug(__METHOD__, "simple", 1, sprintf("Geonames Location  = %s",$kick_butt->get_street_name_geonames()));
-$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Bing Location      = %s",$kick_butt->get_street_name_bing()));
-$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Yahoo Location     = %s",$kick_butt->get_street_name_yahoo()));
+//$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Bing Location      = %s",$kick_butt->get_street_name_bing()));
+//$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Yahoo Location     = %s",$kick_butt->get_street_name_yahoo()));
 
 // Or like this directly
-$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Yahoo Location     = %s",$kick_butt->get_street_name_yahoo(42.510327,-89.937513)));
+//$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Yahoo Location     = %s",$kick_butt->get_street_name_yahoo(42.510327,-89.937513)));
 $kick_butt->debug(__METHOD__, "simple", 2, $kick_butt->get_counters(),1);
 
 // Try some more: 
@@ -62,7 +63,7 @@ $kick_butt->debug(__METHOD__, "simple", 2, $kick_butt->get_counters(),1);
 // echo $kick_butt->get_street_name_google(50.974586,4.467527);
 
 // Belgium only coverage for my own server
-$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Nominatim Location = %s", $kick_butt->get_street_name_nominatim(51.023795, 4.539605)));
+//$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Nominatim Location = %s", $kick_butt->get_street_name_nominatim(51.023795, 4.539605)));
 
 // Check our raw cached request (curlinfo + output) per engine:
 $kick_butt->debug(__METHOD__, "simple",1, print_r($kick_butt->google_page,true));
