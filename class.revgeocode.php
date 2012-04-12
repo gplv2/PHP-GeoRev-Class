@@ -212,6 +212,7 @@ Class GeoRev {
             'yahoo_fail',
             'bing_fail',
             'geonames_fail',
+            'geonames_credits',
             'google_fail',
             'nominatim_fail',
             'yandex_fail',
@@ -346,8 +347,13 @@ Class GeoRev {
 
       /* Do it with curl */
       $ch = curl_init($url);
-
       curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
+      curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
+
+      // set user agent
+      $useragent=sprintf("php-lib ( https://github.com/gplv2/PHP-GeoRev-Class )-[%s]",$this->settings['contact_info']);
+      curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
+
       $server_output = curl_exec($ch);
       $curlinfo = curl_getinfo($ch);
       curl_close($ch);
@@ -397,6 +403,12 @@ Class GeoRev {
       $ch = curl_init($url);
 
       curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
+      curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
+
+      // set user agent
+      $useragent=sprintf("php-lib ( https://github.com/gplv2/PHP-GeoRev-Class )-[%s]",$this->settings['contact_info']);
+      curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
+
       $server_output = curl_exec($ch);
       $curlinfo = curl_getinfo($ch);
       curl_close($ch);
@@ -492,6 +504,12 @@ Class GeoRev {
       $ch = curl_init($url);
 
       curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
+      curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
+
+      // set user agent
+      $useragent=sprintf("php-lib ( https://github.com/gplv2/PHP-GeoRev-Class )-[%s]",$this->settings['contact_info']);
+      curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
+
       $server_output = curl_exec($ch);
       $curlinfo = curl_getinfo($ch);
       curl_close($ch);
@@ -587,6 +605,12 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $ch = curl_init($url);
 
       curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
+      curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
+
+      // set user agent
+      $useragent=sprintf("php-lib ( https://github.com/gplv2/PHP-GeoRev-Class )-[%s]",$this->settings['contact_info']);
+      curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
+
       $server_output = curl_exec($ch);
       $curlinfo = curl_getinfo($ch);
       curl_close($ch);
@@ -694,6 +718,12 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $ch = curl_init($url);
 
       curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
+      curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
+
+      // set user agent
+      $useragent=sprintf("php-lib ( https://github.com/gplv2/PHP-GeoRev-Class )-[%s]",$this->settings['contact_info']);
+      curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
+
       $server_output = curl_exec($ch);
       $curlinfo = curl_getinfo($ch);
       curl_close($ch);
@@ -772,8 +802,11 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $this->throttle_service($tag);
       $this->debug( __METHOD__, "simple", 2, sprintf("Encoding with GeoNames JSON API"));
 
-      #$baseurl = "http://api.geonames.org/findNearbyPlaceNameJSON?lat=%s&lng=%s&username=%s&style=full";
+      /* This is costly stuff, please check */
       $baseurl = "http://api.geonames.org/findNearbyStreetsOSMJSON?lat=%s&lng=%s&username=%s&style=full";
+      $postcodeurl="http://api.geonames.org/findNearbyPostalCodesJSON?formatted=true&lat=%s&lng=%s&username=%s&radius=%s";
+      
+      # $baseurl = "http://api.geonames.org/findNearbyPlaceNameJSON?lat=%s&lng=%s&username=%s&style=full";
       # http://api.geonames.org/findNearbyPlaceNameJSON?lat=50.974383&lng=4.467943&username=demo
       # 51.158705&lon=4.99776166667
       # view-source:http://api.geonames.org/findNearbyStreetsOSMJSON?lat=51.158705&lng=4.99776166667&username=demo%20%2051.158705&lon=4.99776166667
@@ -785,7 +818,14 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       /* Do it with curl */
       $ch = curl_init($url);
+
       curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
+      curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
+
+      // set user agent
+      $useragent=sprintf("php-lib ( https://github.com/gplv2/PHP-GeoRev-Class )-[%s]",$this->settings['contact_info']);
+      curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
+
       $server_output = curl_exec($ch);
       $curlinfo = curl_getinfo($ch);
       curl_close($ch);
@@ -864,9 +904,9 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $this->throttle_service($tag);
       $this->debug( __METHOD__, "simple", 2, sprintf("Encoding with Nominatim"));
 
-      // The standard one
+      // The standard nominatim one
       //$baseurl = "http://open.mapquestapi.com/nominatim/v1/reverse?format=json&lat=%s&lon=%s&email=%s";
-      // My own, with only belgium covered, this should go into the options really
+      // My own, with only belgium covered, this should go into the options really ( since I modded it to give me belgian postal codes )
 		$baseurl = "http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5";
       $url = sprintf($baseurl,$this->lat,$this->lon,$this->settings['key_nominatim']);
 
@@ -879,11 +919,9 @@ Not-for-profit: Application is used by a tax-exempt organization.
       curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
       curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
 
-      $useragent="PHP_Curl";
       // set user agent
+      $useragent=sprintf("php-lib ( https://github.com/gplv2/PHP-GeoRev-Class )-[%s]",$this->settings['contact_info']);
       curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
-
-      // $useragent="Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.1) Gecko/20061204 Firefox/2.0.0.1";
 
       $server_output = curl_exec($ch);
       $curlinfo = curl_getinfo($ch);
@@ -918,7 +956,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
    }
 
 
-   // Helper functions
+   /* This is where you fix OSM annoyances like wrong language or engines returning anglofied names instead of the locale */
    private function post_filter_address($location) {
       if (empty($location)) {
          return "";
@@ -930,6 +968,8 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $location = preg_replace("/ France/"," FR", $location);
       $location = preg_replace("/ Ghent/"," Gent", $location);
       $location = preg_replace("/ Antwerp$/"," Antwerpen", $location);
+      $location = preg_replace("/ Ostend$/"," Oostende", $location);
+      $location = preg_replace("/ Bruges$/"," Brugge", $location);
       $location = preg_replace("/ Arrondissement/","", $location);
       $location = preg_replace("/^, BE$/","", $location);
       $location = preg_replace("/^, LU$/","", $location);
@@ -1475,33 +1515,71 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       $this->debug( __METHOD__, "simple", 2,print_r($page,true),1);
 
+      /* http://www.geonames.org/export/webservice-exception.html */
+      /* We can easily perform more in depth checks with geonames now
+      //ErrorCode Description
+      */
+
+      $error_code = array( 
+         "10" => "Authorization Exception",
+         "11" => "record does not exist",
+         "12" => "other error",
+         "13" => "database timeout",
+         "14" => "invalid parameter",
+         "15" => "no result found",
+         "16" => "duplicate exception",
+         "17" => "postal code not found",
+         "18" => "daily limit of credits exceeded",
+         "19" => "hourly limit of credits exceeded",
+         "20" => "weekly limit of credits exceeded",
+         "21" => "invalid input",
+         "22" => "server overloaded exception",
+         "23" => "service not implemented"
+      );
+
+      /* 
+      {"status": {
+      "message": "we are afraid we could not find a administrative country subdivision for latitude and longitude :51.03,-20.0",
+      "value": 15
+      }}
+      */
+      if (isset($page['status']['value'])) {
+         $status = (int)$page['status']['value'];
+         $this->debug(__METHOD__, "simple" , 0, sprintf("Got status code %s",$status));
+         if (in_array($status, array_keys($error_code))) {
+            $this->debug(__METHOD__, "simple" , 0, sprintf("Error, Geonames said : %s (%s)",$error_code[$status], $page['status']['message']));
+         } else {
+            $this->debug(__METHOD__, "simple" , 0, sprintf("Error, Geonames said : %d / %s",$status, $page['status']['message']));
+         }
+         return "";
+      } else {
+         $this->debug(__METHOD__, "simple" , 2, sprintf("Geonames OK"));
+      }
+
       $address="";
-
-
-         //var_dump($page['streetSegment']); exit(1);
       if (empty($page['streetSegment'])) {
          $this->debug( __METHOD__, "simple", 0,"Nothing found for coordinates.");
          return ""; 
-         //var_dump($page['streetSegment']); exit(1);
       }
 
       $count = count($page['streetSegment']);
-      /* Geonames doesn't really have a great way to validate the content so lets try it by counting and checking for a field */
+
+      /* Count the number of streets found */
       $this->debug( __METHOD__, "simple", 2,sprintf("Count = %d", $count));
 
       if ($count > 0) {
          /* Trying to extract meaningfull data is a lot easier now from geonames with their OSM coverage!  Woohoo */
          $r_address = array();
+         /*
+         2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [ref] => N267
+         2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [distance] => 0.07
+         2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [highway] => secondary
+         2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [name] => Damstraat
+         2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [oneway] => true
+         2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [line] => 4.4663719 50.9747971,4.4670574 50.9747205
+         2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [maxspeed] => 50
+         */
 
-/*
-2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [ref] => N267
-2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [distance] => 0.07
-2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [highway] => secondary
-2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [name] => Damstraat
-2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [oneway] => true
-2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [line] => 4.4663719 50.9747971,4.4670574 50.9747205
-2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [maxspeed] => 50
-*/
          $closest =(float)100;
          foreach ($page['streetSegment'] as $street ) {
             if (isset($street['distance'])) {
@@ -1522,7 +1600,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          // $address = sprintf("%s %s, %s",$page['geonames'][0]['toponymName'], $page['geonames'][0]['countryCode']);
          // $message = $page['status']['message'];
       } else {
-         $this->debug( __METHOD__, "simple", 0,"Error parsing geonames data");
+         $this->debug( __METHOD__, "simple", 0,"Untrapped Error parsing geonames data");
          $this->debug( __METHOD__, "simple", 0,print_r($page,true));
          return "";
       }
@@ -1633,7 +1711,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [2] => BE 
          // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()] ) 
          //
-         if (strlen($house_number)>0) { 
+         if (!empty($house_number)) { 
             $house_number = sprintf(" %s",$house_number);
          } else {
             $house_number = '';

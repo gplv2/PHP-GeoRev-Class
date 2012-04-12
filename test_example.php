@@ -7,11 +7,11 @@ require_once("class.revgeocode.php");
 // This array can come from anywhere, but this is what the format looks like ...
 $conf = array( 
       'debug' => '1',
-      'verbose' => '2',
+      'verbose' => '3',
       'use_yahoo' => '0',
       'use_bing' => '0',
       'use_geonames' => '1',
-      'use_nominatim' => '0',
+      'use_nominatim' => '1',
       'use_google' => '0',
       'use_google_v3' => '0',
       'sleep_bing' => '2000',
@@ -36,7 +36,8 @@ $conf = array(
             array('host' => 'localhost:11211', 'name'=> 'slice002', 'type' => 'memcached' )
             ),
       'mc_compress' => '1',
-      'mc_expire' => '500'
+      'mc_expire' => '100',
+      'contact_info' => 'unset@email.com'
       );
 
 // Create a GeoRev object
@@ -63,7 +64,7 @@ $kick_butt->debug(__METHOD__, "simple", 2, $kick_butt->get_counters(),1);
 // echo $kick_butt->get_street_name_google(50.974586,4.467527);
 
 // Belgium only coverage for my own server
-//$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Nominatim Location = %s", $kick_butt->get_street_name_nominatim(51.023795, 4.539605)));
+$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Nominatim Location = %s", $kick_butt->get_street_name_nominatim()));
 
 // Check our raw cached request (curlinfo + output) per engine:
 $kick_butt->debug(__METHOD__, "simple",1, print_r($kick_butt->google_page,true));
