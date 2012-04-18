@@ -33,9 +33,11 @@ require_once('utf8_helper.php');
  * http://dev.virtualearth.net/REST/v1/Locations/50.43434,4.5232323?o=json&key=[key_here]
  * http://open.mapquestapi.com/nominatim/v1/reverse?format=json&json_callback=renderExampleThreeResults&lat=51.521435&lon=-0.162714
  * http://api.geonames.org/findNearbyPlaceNameJSON?lat=%s&lng=%s&username=%s&style=full
+ * http://geocoding.cloudmade.com/<an_api_key>/geocoding/v2/find.js?object_type=address&around=51.0433583233,4.49876833333&distance=closest
  */
 
 Class GeoRev {
+
    // Defaults, base stuff we can't do without
    private $settings= array( 
          'debug' => 0,
@@ -47,13 +49,17 @@ Class GeoRev {
          'use_google' => 0,
          'use_google_v3' => 0,
          'use_yandex' => 0,
-         'sleep_bing' => '2000',
-         'sleep_yahoo' => '2000',
-         'sleep_google' => '2000',
-         'sleep_geonames' => '2000',
-         'sleep_nominatim' => '2000',
-         'sleep_yandex' => '2000',
+         'use_cloudmade' => 0,
+         'sleep_bing' => '5000',
+         'sleep_yahoo' => '5000',
+         'sleep_google' => '5000',
+         'sleep_geonames' => '5000',
+         'sleep_nominatim' => '5000',
+         'sleep_yandex' => '5000',
+         'sleep_cloudmade' => '5000',
          'mc_compress' => 1,
+         'mc_compress' => 1,
+         'user_agent_string' => 'php-lib ( https://github.com/gplv2/PHP-GeoRev-Class )',
          'mc_expire' => 500
          );
 
@@ -66,7 +72,8 @@ Class GeoRev {
          'google' => array('timer_name' => 'go_timer','sleep_setting' => 'sleep_google'),
          'geonames' => array('timer_name' => 'ge_timer','sleep_setting' => 'sleep_geonames'),
          'nominatim' => array('timer_name' => 'no_timer','sleep_setting' => 'sleep_nominatim'),
-         'yandex' => array('timer_name' => 'gp_timer','sleep_setting' => 'sleep_yandex')
+         'yandex' => array('timer_name' => 'gp_timer','sleep_setting' => 'sleep_yandex'),
+         'cloudmade' => array('timer_name' => 'cm_timer','sleep_setting' => 'sleep_cloudmade')
          );
 
    // Keep track of what works
@@ -85,16 +92,17 @@ Class GeoRev {
    // Runtime stats
    private $counters=array();
 
-   // Raw return cache of the page, its' ok these are public
+   // Raw return cache of the page, its' ok these are public for the example, they should be private really
    public $google_page; 
    public $yahoo_page; 
    public $bing_page; 
    public $geonames_page; 
    public $nominatim_page; 
    public $yandex_page; 
+   public $cloudmade_page; 
 
-   // My own public postal code service AS IS
-   public $gazzy_page; 
+   // My own public postal code service AS IS for the time being (Belgium only, I'm redesigning this to fit postgis geometry types
+   private $gazzy_page; 
 
    // Dev aid
    public $debug;
@@ -116,6 +124,10 @@ Class GeoRev {
       /* Prepare this one already */
       $this->trans= new Latin1UTF8();
 
+      /* check for curl */
+      if (!function_exists('curl_init')) {
+         throw new Exception(sprintf("cURL has to be installed in order to get %s class to work.",__CLASS__));
+      }
 
       /* Determine the state of the engines from the settings */
       $auto_settings['can_use_google_v3'] = !empty($conf_settings['google_premierid']) ? 1 : 0;
@@ -125,10 +137,9 @@ Class GeoRev {
       $auto_settings['can_use_geonames']  = !empty($conf_settings['key_geonames'])     ? 1 : 0;
       $auto_settings['can_use_nominatim'] = !empty($conf_settings['key_nominatim'])    ? 1 : 0;
       $auto_settings['can_use_yandex'] = !empty($conf_settings['key_yandex'])    ? 1 : 0;
+      $auto_settings['can_use_cloudmade'] = !empty($conf_settings['key_cloudmade'])    ? 1 : 0;
 
-      // print_r($conf_settings);
       // Merge the class defaults with the settings
-			// print_r($conf_settings);exit;
       $this->settings = array_merge($this->settings, $conf_settings);
 
       // Merge the autosettings with the settings
@@ -174,33 +185,37 @@ Class GeoRev {
          if(count($memc_servers)>0) {
             include_once('class.memcached.php');
             $this->MC = new MCache($memc_servers);
+            $memcached_counters= array ('memc_get','memc_set','memc_hit','memc_miss');
+            $this->register_counter($memcached_counters,0);
             // var_dump($this->MC);
             if (!$this->MC->getServerCount()) {
-               $this->debug(__METHOD__, "simple" , 2, sprintf("No Memcache server candidates are working"));
+               $this->debug(__METHOD__, "simple" , 2, sprintf("No Memcache servers candidates defined"));
                unset($this->MC);
             } else {
-               $this->debug(__METHOD__, "simple" , 2, sprintf("%d Memcache server candidates available, testing ...",$this->MC->getServerCount()));
+               $this->debug(__METHOD__, "simple" , 2, sprintf("%d Memcache servers defined ...",$this->MC->getServerCount()));
+               if (!empty($conf_settings['test_memcache'])) {
+                  $this->debug(__METHOD__, "simple" , 2, sprintf("Testing Memcache ..."));
 
-               // Create test data
-               $test_val = sprintf("%s%s", md5(json_encode($conf_settings['cacheservers'])),time());
-               $test_key = "GEOREVTEST";
+                  // Create test data
+                  $test_val = sprintf("%s%s", md5(json_encode($conf_settings['cacheservers'])),time());
+                  $test_key = "GEOREVTEST";
 
-               // Set and get a known value
-               $this->MC->set($test_key, $test_val, $compress=1, $expire=60);
-               $result = $this->MC->get($test_key);
+                  // Set and get a known value
+                  $this->MC->set($test_key, $test_val, $compress=1, $expire=60);
+                  $result = $this->MC->get($test_key);
 
-               if (strcmp($result, $test_val) == 0) {
-                  $this->debug(__METHOD__, "simple" , 2, sprintf("Memcache seems to be working."));
-                  $memcached_counters= array ('memc_get','memc_set','memc_hit','memc_miss');
-                  $this->register_counter($memcached_counters,0);
-               } else {
-                  // Memcached doesn't seem to work
-                  $this->debug(__METHOD__, "simple" , 2, sprintf("Disabling Memcache since its not working."));
-                  unset($this->MC);
+                  if (strcmp($result, $test_val) == 0) {
+                     $this->debug(__METHOD__, "simple" , 2, sprintf("Memcache seems to be working."));
+                  } else {
+                     // Memcached doesn't seem to work
+                     $this->debug(__METHOD__, "simple" , 2, sprintf("Disabling Memcache since its not working."));
+                     unset($this->MC);
+                  }
                }
             }
          }
       }
+
       // Get some counters registered and initialised 
       $init_counters = array ('hit_google',
             'hit_yahoo',
@@ -209,26 +224,28 @@ Class GeoRev {
             'hit_nominatim',
             'hit_yandex',
             'hit_gazzy',
-            'yahoo_fail',
-            'bing_fail',
-            'geonames_fail',
-            'geonames_credits',
-            'google_fail',
-            'nominatim_fail',
-            'yandex_fail',
-            'gazzy_fail',
-            'bing_ok',
-            'google_ok',
-            'yahoo_ok',
-            'geonames_ok',
-            'yandex_ok',
-            'nominatim_ok',
-            'gazzy_ok'
+            'hit_cloudmade',
+            'fail_yahoo',
+            'fail_bing',
+            'fail_geonames',
+            'fail_google',
+            'fail_nominatim',
+            'fail_yandex',
+            'fail_cloudmade',
+            'fail_gazzy',
+            'ok_bing',
+            'ok_google',
+            'ok_yahoo',
+            'ok_geonames',
+            'ok_yandex',
+            'ok_nominatim',
+            'ok_cloudmade',
+            'ok_gazzy'
             );
       $this->register_counter($init_counters,0);
 
-      // timers for the services
-      $init_timers = array ('go_timer','ya_timer','bi_timer','ge_timer','no_timer','gp_timer');
+      // timers for the services (this could be a loop over $service_variable_map , would be better but cucombersome as they say)
+      $init_timers = array ('go_timer','ya_timer','bi_timer','ge_timer','no_timer','gp_timer','cm_timer');
       $this->register_counter($init_timers,microtime(true));
 
       // $this->debug(__METHOD__, "simple", 1, $this->counters);
@@ -309,27 +326,23 @@ Class GeoRev {
          }
       }
 
-      $this->debug(__METHOD__, "simple",3,"Checking 1 .");
-      if($this->counters['yandex_fail']>$this->settings['yandex_max_fail'] OR !$this->settings['can_use_yandex']) {
+      if($this->counters['fail_yandex']>$this->settings['yandex_max_fail'] OR !$this->settings['can_use_yandex']) {
          $this->settings['use_yandex']=0;
          return "";
       }
 
-      $this->debug(__METHOD__, "simple",3,"Checking 2 .");
       if (!empty($this->settings['dryrun'])) {
          $this->debug(__METHOD__, "simple",5,"Dryrun active, not doing encode now.");
          return "";
       }
 
-      $this->debug(__METHOD__, "simple",3,"Checking 3 .");
       if(empty($this->settings['use_yandex'])) {
+         $this->debug(__METHOD__, "simple",0,sprintf("Engine %s is disabled",$tag));
          return "";
       }
-      $this->debug(__METHOD__, "simple",3,"Checking 4 .");
-
       // Delay as specified
       $this->throttle_service($tag);
-      $this->debug( __METHOD__, "simple", 2, sprintf("Encoding with Geoplugin"));
+      $this->debug( __METHOD__, "simple", 2, sprintf("Encoding with yandex"));
 
       /* ll=
          :geocode => query,
@@ -347,13 +360,11 @@ Class GeoRev {
 
       /* Do it with curl */
       $ch = curl_init($url);
-      curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
-      curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
 
       // set user agent
-      $useragent=sprintf("php-lib ( https://github.com/gplv2/PHP-GeoRev-Class )-[%s]",$this->settings['contact_info']);
-      curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
+      curl_setopt($ch, CURLOPT_USERAGENT, $this->settings['user_agent_string']);
 
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
       $server_output = curl_exec($ch);
       $curlinfo = curl_getinfo($ch);
       curl_close($ch);
@@ -361,7 +372,7 @@ Class GeoRev {
       $this->debug( __METHOD__, "simple", 5, $curlinfo,1);
 
       if ($curlinfo['http_code']!=200) {
-         $this->counters['yandex_fail']++;
+         $this->counters['fail_yandex']++;
          return "";
       }
 
@@ -402,13 +413,10 @@ Class GeoRev {
       /* Do it with curl */
       $ch = curl_init($url);
 
-      curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
-      curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
-
       // set user agent
-      $useragent=sprintf("php-lib ( https://github.com/gplv2/PHP-GeoRev-Class )-[%s]",$this->settings['contact_info']);
-      curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
+      curl_setopt($ch, CURLOPT_USERAGENT, $this->settings['user_agent_string']);
 
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
       $server_output = curl_exec($ch);
       $curlinfo = curl_getinfo($ch);
       curl_close($ch);
@@ -416,9 +424,11 @@ Class GeoRev {
       $this->debug( __METHOD__, "simple", 5, $curlinfo,1);
 
       if ($curlinfo['http_code']!=200) {
-         $this->counters['gazzy_fail']++;
+         $this->counters['fail_gazzy']++;
          return "";
       }
+      $this->counters['ok_gazzy']++;
+
       // $this->debug( __METHOD__, "simple", 5, $server_output);
 
       // "text/javascript; charset=utf-8"
@@ -465,7 +475,7 @@ Class GeoRev {
          }
       }
 
-      if($this->counters['google_fail']>$this->settings['google_max_fail'] OR (!$this->settings['can_use_google'] AND !$this->settings['can_use_google_v3'])) {
+      if($this->counters['fail_google']>$this->settings['google_max_fail'] OR (!$this->settings['can_use_google'] AND !$this->settings['can_use_google_v3'])) {
          $this->settings['use_google']=0;
          return "";
       }
@@ -476,6 +486,7 @@ Class GeoRev {
       }
 
       if(empty($this->settings['use_google'])) {
+         $this->debug(__METHOD__, "simple",0,sprintf("Engine %s is disabled",$tag));
          return "";
       }
 
@@ -503,13 +514,10 @@ Class GeoRev {
       /* Do it with curl */
       $ch = curl_init($url);
 
-      curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
-      curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
-
       // set user agent
-      $useragent=sprintf("php-lib ( https://github.com/gplv2/PHP-GeoRev-Class )-[%s]",$this->settings['contact_info']);
-      curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
+      curl_setopt($ch, CURLOPT_USERAGENT, $this->settings['user_agent_string']);
 
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
       $server_output = curl_exec($ch);
       $curlinfo = curl_getinfo($ch);
       curl_close($ch);
@@ -517,7 +525,7 @@ Class GeoRev {
       $this->debug( __METHOD__, "simple", 5, $curlinfo,1);
 
       if ($curlinfo['http_code']!=200) {
-         $this->counters['google_fail']++;
+         $this->counters['fail_google']++;
          return "";
       }
 
@@ -569,7 +577,7 @@ Class GeoRev {
          }
       }
 
-      if($this->counters['bing_fail']>$this->settings['bing_max_fail'] OR !$this->settings['can_use_bing']) {
+      if($this->counters['fail_bing']>$this->settings['bing_max_fail'] OR !$this->settings['can_use_bing']) {
          $this->settings['use_bing']=0;
          return "";
       }
@@ -589,6 +597,7 @@ Education: Application is used for public use by schools, including faculty, sta
 Not-for-profit: Application is used by a tax-exempt organization.
        */
       if(empty($this->settings['use_bing'])) {
+         $this->debug(__METHOD__, "simple",0,sprintf("Engine %s is disabled",$tag));
          return "";
       }
 
@@ -604,13 +613,10 @@ Not-for-profit: Application is used by a tax-exempt organization.
       /* Do it with curl */
       $ch = curl_init($url);
 
-      curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
-      curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
-
       // set user agent
-      $useragent=sprintf("php-lib ( https://github.com/gplv2/PHP-GeoRev-Class )-[%s]",$this->settings['contact_info']);
-      curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
+      curl_setopt($ch, CURLOPT_USERAGENT, $this->settings['user_agent_string']);
 
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
       $server_output = curl_exec($ch);
       $curlinfo = curl_getinfo($ch);
       curl_close($ch);
@@ -640,7 +646,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
        */
 
       if ($curlinfo['http_code']!=200) {
-         $this->counters['bing_fail']++;
+         $this->counters['fail_bing']++;
          return "";
       }
 
@@ -691,7 +697,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          }
       }
 
-      if($this->counters['yahoo_fail']>$this->settings['yahoo_max_fail'] OR !$this->settings['can_use_yahoo']) {
+      if($this->counters['fail_yahoo']>$this->settings['yahoo_max_fail'] OR !$this->settings['can_use_yahoo']) {
          $this->settings['use_yahoo']=0;
          return "";
       }
@@ -702,6 +708,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       }
 
       if(empty($this->settings['use_yahoo'])) {
+         $this->debug(__METHOD__, "simple",0,sprintf("Engine %s is disabled",$tag));
          return "";
       }
       $this->throttle_service($tag);
@@ -717,13 +724,10 @@ Not-for-profit: Application is used by a tax-exempt organization.
       /* Do it with curl */
       $ch = curl_init($url);
 
-      curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
-      curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
-
       // set user agent
-      $useragent=sprintf("php-lib ( https://github.com/gplv2/PHP-GeoRev-Class )-[%s]",$this->settings['contact_info']);
-      curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
+      curl_setopt($ch, CURLOPT_USERAGENT, $this->settings['user_agent_string']);
 
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
       $server_output = curl_exec($ch);
       $curlinfo = curl_getinfo($ch);
       curl_close($ch);
@@ -732,7 +736,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
 
       if ($curlinfo['http_code']!=200) {
-         $this->counters['yahoo_fail']++;
+         $this->counters['fail_yahoo']++;
          return "";
       }
 
@@ -783,7 +787,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          }
       }
 
-      if($this->counters['geonames_fail']>$this->settings['geonames_max_fail'] OR !$this->settings['can_use_geonames']) {
+      if($this->counters['fail_geonames']>$this->settings['geonames_max_fail'] OR !$this->settings['can_use_geonames']) {
          $this->settings['use_geonames']=0;
          return "";
       }
@@ -795,18 +799,15 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
 
       if(empty($this->settings['use_geonames'])) {
-         $this->debug( __METHOD__, "simple", 0, sprintf("Bail out"));
+         $this->debug(__METHOD__, "simple",0,sprintf("Engine %s is disabled",$tag));
          return "";
       }
 
       $this->throttle_service($tag);
       $this->debug( __METHOD__, "simple", 2, sprintf("Encoding with GeoNames JSON API"));
 
-      /* This is costly stuff, please check */
+      #$baseurl = "http://api.geonames.org/findNearbyPlaceNameJSON?lat=%s&lng=%s&username=%s&style=full";
       $baseurl = "http://api.geonames.org/findNearbyStreetsOSMJSON?lat=%s&lng=%s&username=%s&style=full";
-      $postcodeurl="http://api.geonames.org/findNearbyPostalCodesJSON?formatted=true&lat=%s&lng=%s&username=%s&radius=%s";
-      
-      # $baseurl = "http://api.geonames.org/findNearbyPlaceNameJSON?lat=%s&lng=%s&username=%s&style=full";
       # http://api.geonames.org/findNearbyPlaceNameJSON?lat=50.974383&lng=4.467943&username=demo
       # 51.158705&lon=4.99776166667
       # view-source:http://api.geonames.org/findNearbyStreetsOSMJSON?lat=51.158705&lng=4.99776166667&username=demo%20%2051.158705&lon=4.99776166667
@@ -819,13 +820,10 @@ Not-for-profit: Application is used by a tax-exempt organization.
       /* Do it with curl */
       $ch = curl_init($url);
 
-      curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
-      curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
-
       // set user agent
-      $useragent=sprintf("php-lib ( https://github.com/gplv2/PHP-GeoRev-Class )-[%s]",$this->settings['contact_info']);
-      curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
+      curl_setopt($ch, CURLOPT_USERAGENT, $this->settings['user_agent_string']);
 
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
       $server_output = curl_exec($ch);
       $curlinfo = curl_getinfo($ch);
       curl_close($ch);
@@ -833,7 +831,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $this->debug( __METHOD__, "simple", 5, $curlinfo,1);
 
       if ($curlinfo['http_code']!=200) {
-         $this->counters['geonames_fail']++;
+         $this->counters['fail_geonames']++;
          return "";
       }
 
@@ -858,6 +856,94 @@ Not-for-profit: Application is used by a tax-exempt organization.
       return 1;
    }
 
+   private function revgeocode_cloudmade () {
+      $this->debug(__METHOD__, "call",5);
+      $tag='cloudmade';
+
+      // The memcache key
+      $mckey=sprintf("RG%s_%s|%s",strtoupper(substr($tag,0,4)), $this->float_to_small($this->lat), $this->float_to_small($this->lon));
+
+      // Fetch from cache if we can 
+      if(isset($this->MC)){
+         $this->debug(__METHOD__, "simple",3,"Checking cache...");
+         $this->debug(__METHOD__, "simple",3,sprintf("Memcache key %s",$mckey));
+         $cached = $this->MC->get($mckey);
+         $this->counters['memc_get']++;
+         $page = json_decode($cached['contents'],true);
+         if (is_array($page)) {
+            $this->debug(__METHOD__, "simple",3,"Cached data found.");
+            // Seems we have some valid cache data for this service
+            $this->cloudmade_page=$cached;
+            $this->counters['memc_hit']++;
+            return 1;
+         } else {
+            $this->counters['memc_miss']++;
+         }
+      }
+
+      if($this->counters['fail_cloudmade']>$this->settings['cloudmade_max_fail'] OR !$this->settings['can_use_cloudmade']) {
+         $this->settings['use_cloudmade']=0;
+         return "";
+      }
+
+      if (!empty($this->settings['dryrun'])) {
+         $this->debug(__METHOD__, "simple",1,"Dryrun active, not doing encode now.");
+         return "";
+      }
+
+      if(empty($this->settings['use_cloudmade'])) {
+         $this->debug(__METHOD__, "simple",0,sprintf("Engine %s is disabled",$tag));
+         return "";
+
+      }
+      $this->throttle_service($tag);
+      $this->debug( __METHOD__, "simple", 2, sprintf("Encoding with Cloudmade"));
+
+      // http://geocoding.cloudmade.com/<an_api_key>/geocoding/v2/find.js?object_type=address&around=51.0433583233,4.49876833333&distance=closest
+		$baseurl = "http://geocoding.cloudmade.com/%s/geocoding/v2/find.js?object_type=address&around=%s,%s&distance=closest";
+      $url = sprintf($baseurl,$this->settings['key_cloudmade'], $this->lat,$this->lon);
+
+      $this->debug( __METHOD__, "simple", 2, sprintf("Geocoding url '%s'", $url));
+      $this->counters['hit_cloudmade']++;
+
+      /* Do it with curl */
+      $ch = curl_init($url);
+
+      // set user agent
+      curl_setopt($ch, CURLOPT_USERAGENT, $this->settings['user_agent_string']);
+
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
+      curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
+
+      $server_output = curl_exec($ch);
+      $curlinfo = curl_getinfo($ch);
+      curl_close($ch);
+
+      $this->debug( __METHOD__, "simple", 5, $curlinfo,1);
+
+      if ($curlinfo['http_code']!=200) {
+         $this->counters['fail_cloudmade']++;
+         return "";
+      }
+
+      // $this->debug( __METHOD__, "simple", 5, $server_output);
+      $contents = $server_output; 
+      if (preg_match("/utf-8/", strtolower($curlinfo['content_type']), $matches)) {
+         if (!empty($matches[0])) {
+            $this->debug( __METHOD__, "simple", 3, "Encoding utf-8");
+            $contents = utf8_encode($server_output); 
+         }
+      }
+
+      $this->cloudmade_page = array ('curlinfo' => $curlinfo, 'contents' => $contents);
+      if(isset($this->MC)){
+         $this->debug(__METHOD__, "simple",2,"Saving in cache");
+         $this->MC->set($mckey, $this->cloudmade_page, $this->settings['mc_compress'], $this->settings['mc_expire']);
+         $this->counters['memc_set']++;
+      }
+      $this->counters['cm_timer']=microtime(true);
+      return 1;
+   }
 
    private function revgeocode_nominatim () {
       // http://open.mapquestapi.com/nominatim/#reverse
@@ -885,8 +971,10 @@ Not-for-profit: Application is used by a tax-exempt organization.
          }
       }
 
-      /*
-      if($this->counters['nominatim_fail']>$this->settings['nominatim_max_fail'] OR !$this->settings['can_use_nominatim']) {
+      /* WARNING 
+      This runs on my own box for my own use and I want this to keep hitting gazetteer for my own reasons, so check is disabled....
+
+      if($this->counters['fail_nominatim']>$this->settings['nominatim_max_fail'] OR !$this->settings['can_use_nominatim']) {
          $this->settings['use_nominatim']=0;
          return "";
       }
@@ -904,9 +992,9 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $this->throttle_service($tag);
       $this->debug( __METHOD__, "simple", 2, sprintf("Encoding with Nominatim"));
 
-      // The standard nominatim one
+      // The standard one
       //$baseurl = "http://open.mapquestapi.com/nominatim/v1/reverse?format=json&lat=%s&lon=%s&email=%s";
-      // My own, with only belgium covered, this should go into the options really ( since I modded it to give me belgian postal codes )
+      // My own, with only belgium covered, this should go into the options really
 		$baseurl = "http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5";
       $url = sprintf($baseurl,$this->lat,$this->lon,$this->settings['key_nominatim']);
 
@@ -916,12 +1004,11 @@ Not-for-profit: Application is used by a tax-exempt organization.
       /* Do it with curl */
       $ch = curl_init($url);
 
+      // set user agent
+      curl_setopt($ch, CURLOPT_USERAGENT, $this->settings['user_agent_string']);
+
       curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
       curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
-
-      // set user agent
-      $useragent=sprintf("php-lib ( https://github.com/gplv2/PHP-GeoRev-Class )-[%s]",$this->settings['contact_info']);
-      curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
 
       $server_output = curl_exec($ch);
       $curlinfo = curl_getinfo($ch);
@@ -930,7 +1017,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $this->debug( __METHOD__, "simple", 5, $curlinfo,1);
 
       if ($curlinfo['http_code']!=200) {
-         $this->counters['nominatim_fail']++;
+         $this->counters['fail_nominatim']++;
          return "";
       }
 
@@ -956,7 +1043,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
    }
 
 
-   /* This is where you fix OSM annoyances like wrong language or engines returning anglofied names instead of the locale */
+   // Helper functions
    private function post_filter_address($location) {
       if (empty($location)) {
          return "";
@@ -968,8 +1055,6 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $location = preg_replace("/ France/"," FR", $location);
       $location = preg_replace("/ Ghent/"," Gent", $location);
       $location = preg_replace("/ Antwerp$/"," Antwerpen", $location);
-      $location = preg_replace("/ Ostend$/"," Oostende", $location);
-      $location = preg_replace("/ Bruges$/"," Brugge", $location);
       $location = preg_replace("/ Arrondissement/","", $location);
       $location = preg_replace("/^, BE$/","", $location);
       $location = preg_replace("/^, LU$/","", $location);
@@ -1199,7 +1284,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       // We can easily perform more in depth checks with google
       $status = $page['Status']['code'];
       if (strcmp($status, "200") == 0) {
-         $this->counters['google_ok']++;
+         $this->counters['ok_google']++;
          $this->debug(__METHOD__, "simple" , 3, "Ok, We have 200 status code");
       }
 
@@ -1327,7 +1412,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       $newaddress="";
       if ($this->bing_page['curlinfo']['http_code']==200) {
-         $this->counters['bing_ok']++;
+         $this->counters['ok_bing']++;
          $newaddress=$this->trans->mixed_to_utf8($this->post_filter_address($address));
 
          // "51.0801183333,4.41619666667, Rumst, BE"
@@ -1406,7 +1491,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       } elseif ($status>0){
          /* We are hitting a query problem, just skip this record */
          $this->debug( __METHOD__, "simple", 3, sprintf("Warning, Bing says : '%s'.", $message));
-         $this->counters['bing_fail']++;
+         $this->counters['fail_bing']++;
          $this->settings['sleep_bing']=$this->settings['sleep_bing'] + 500;
       }
       $this->debug(__METHOD__, "hangup",5);
@@ -1457,7 +1542,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $newaddress="";
 
       if ($status==0) {
-         $this->counters['yahoo_ok']++;
+         $this->counters['ok_yahoo']++;
          // Successful geocode
          $newaddress=trim($this->trans->mixed_to_utf8($this->post_filter_address($address)));
          /* When yahoo doesn't know the street for sure it just returns the coordinates it received 
@@ -1476,7 +1561,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       } elseif ($status>0){
          /* We are hitting a query problem, just skip this record */
          $this->debug( __METHOD__, "simple", 3, sprintf("Warning, Yahoo says : '%s'.", $message));
-         $this->counters['yahoo_fail']++;
+         $this->counters['fail_yahoo']++;
          $this->settings['sleep_yahoo']=$this->settings['sleep_yahoo'] + 500;
       }
       $this->debug(__METHOD__, "hangup",5);
@@ -1515,71 +1600,33 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       $this->debug( __METHOD__, "simple", 2,print_r($page,true),1);
 
-      /* http://www.geonames.org/export/webservice-exception.html */
-      /* We can easily perform more in depth checks with geonames now
-      //ErrorCode Description
-      */
-
-      $error_code = array( 
-         "10" => "Authorization Exception",
-         "11" => "record does not exist",
-         "12" => "other error",
-         "13" => "database timeout",
-         "14" => "invalid parameter",
-         "15" => "no result found",
-         "16" => "duplicate exception",
-         "17" => "postal code not found",
-         "18" => "daily limit of credits exceeded",
-         "19" => "hourly limit of credits exceeded",
-         "20" => "weekly limit of credits exceeded",
-         "21" => "invalid input",
-         "22" => "server overloaded exception",
-         "23" => "service not implemented"
-      );
-
-      /* 
-      {"status": {
-      "message": "we are afraid we could not find a administrative country subdivision for latitude and longitude :51.03,-20.0",
-      "value": 15
-      }}
-      */
-      if (isset($page['status']['value'])) {
-         $status = (int)$page['status']['value'];
-         $this->debug(__METHOD__, "simple" , 0, sprintf("Got status code %s",$status));
-         if (in_array($status, array_keys($error_code))) {
-            $this->debug(__METHOD__, "simple" , 0, sprintf("Error, Geonames said : %s (%s)",$error_code[$status], $page['status']['message']));
-         } else {
-            $this->debug(__METHOD__, "simple" , 0, sprintf("Error, Geonames said : %d / %s",$status, $page['status']['message']));
-         }
-         return "";
-      } else {
-         $this->debug(__METHOD__, "simple" , 2, sprintf("Geonames OK"));
-      }
-
       $address="";
+
+
+         //var_dump($page['streetSegment']); exit(1);
       if (empty($page['streetSegment'])) {
          $this->debug( __METHOD__, "simple", 0,"Nothing found for coordinates.");
          return ""; 
+         //var_dump($page['streetSegment']); exit(1);
       }
 
       $count = count($page['streetSegment']);
-
-      /* Count the number of streets found */
+      /* Geonames doesn't really have a great way to validate the content so lets try it by counting and checking for a field */
       $this->debug( __METHOD__, "simple", 2,sprintf("Count = %d", $count));
 
       if ($count > 0) {
          /* Trying to extract meaningfull data is a lot easier now from geonames with their OSM coverage!  Woohoo */
          $r_address = array();
-         /*
-         2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [ref] => N267
-         2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [distance] => 0.07
-         2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [highway] => secondary
-         2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [name] => Damstraat
-         2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [oneway] => true
-         2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [line] => 4.4663719 50.9747971,4.4670574 50.9747205
-         2012-04-12 16:59:44:[2]- [GeoRev::get_street_name_geonames()]                     [maxspeed] => 50
-         */
 
+/*
+2012-04-12 16:59:44:[2]- [GeoRev::()]                     [ref] => N267
+2012-04-12 16:59:44:[2]- [GeoRev::()]                     [distance] => 0.07
+2012-04-12 16:59:44:[2]- [GeoRev::()]                     [highway] => secondary
+2012-04-12 16:59:44:[2]- [GeoRev::()]                     [name] => Damstraat
+2012-04-12 16:59:44:[2]- [GeoRev::()]                     [oneway] => true
+2012-04-12 16:59:44:[2]- [GeoRev::()]                     [line] => 4.4663719 50.9747971,4.4670574 50.9747205
+2012-04-12 16:59:44:[2]- [GeoRev::()]                     [maxspeed] => 50
+*/
          $closest =(float)100;
          foreach ($page['streetSegment'] as $street ) {
             if (isset($street['distance'])) {
@@ -1600,7 +1647,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          // $address = sprintf("%s %s, %s",$page['geonames'][0]['toponymName'], $page['geonames'][0]['countryCode']);
          // $message = $page['status']['message'];
       } else {
-         $this->debug( __METHOD__, "simple", 0,"Untrapped Error parsing geonames data");
+         $this->debug( __METHOD__, "simple", 0,"Error parsing geonames data");
          $this->debug( __METHOD__, "simple", 0,print_r($page,true));
          return "";
       }
@@ -1610,7 +1657,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $newaddress="";
 
       if ($this->geonames_page['curlinfo']['http_code']==200) {
-         $this->counters['geonames_ok']++;
+         $this->counters['ok_geonames']++;
          if (strlen($address)>0) {
             $newaddress=$this->trans->mixed_to_utf8($this->post_filter_address($address));
             $this->debug( __METHOD__, "simple", 2, sprintf("Geonames encoded is: '%s'.", $newaddress));
@@ -1619,7 +1666,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          }
       } else {
          $this->debug( __METHOD__, "simple", 3, sprintf("Warning, Geonames says : '%s'.", $this->geonames_page['curlinfo']['http_code']));
-         $this->counters['geonames_fail']++;
+         $this->counters['fail_geonames']++;
          $this->settings['sleep_geonames']=$this->settings['sleep_geonames'] + 500;
       }
       $this->debug(__METHOD__, "hangup",5);
@@ -1662,56 +1709,56 @@ Not-for-profit: Application is used by a tax-exempt organization.
          $r_address = array();
          // Get the street if its there
          //
-         // 2011-07-28 15:09:44:[3]- [GeoRev::get_street_name_nominatim()]             [road] => Rue De Rudder - De Rudderstraat
-         // 2011-07-28 15:09:44:[3]- [GeoRev::get_street_name_nominatim()]             [town] => Sint-Jans-Molenbeek
-         // 2011-07-28 15:09:44:[3]- [GeoRev::get_street_name_nominatim()]             [city] => Sint-Jans-Molenbeek
-         // 2011-07-28 15:09:44:[3]- [GeoRev::get_street_name_nominatim()]             [state district] => Franse Gemeenschap
-         // 2011-07-28 15:09:44:[3]- [GeoRev::get_street_name_nominatim()]             [state] => Brussels Hoofdstedelijk Gewest
-         // 2011-07-28 15:09:44:[3]- [GeoRev::get_street_name_nominatim()]             [country] => BelgiÃ«
-         // 2011-07-28 15:09:44:[3]- [GeoRev::get_street_name_nominatim()]             [country_code] => be
-         // 2011-07-28 15:09:44:[3]- [GeoRev::get_street_name_nominatim()]             [postcode] => 1080
+         // 2011-07-28 15:09:44:[3]- [GeoRev::()]             [road] => Rue De Rudder - De Rudderstraat
+         // 2011-07-28 15:09:44:[3]- [GeoRev::()]             [town] => Sint-Jans-Molenbeek
+         // 2011-07-28 15:09:44:[3]- [GeoRev::()]             [city] => Sint-Jans-Molenbeek
+         // 2011-07-28 15:09:44:[3]- [GeoRev::()]             [state district] => Franse Gemeenschap
+         // 2011-07-28 15:09:44:[3]- [GeoRev::()]             [state] => Brussels Hoofdstedelijk Gewest
+         // 2011-07-28 15:09:44:[3]- [GeoRev::()]             [country] => BelgiÃ«
+         // 2011-07-28 15:09:44:[3]- [GeoRev::()]             [country_code] => be
+         // 2011-07-28 15:09:44:[3]- [GeoRev::()]             [postcode] => 1080
          //
          //
-         // 2011-07-28 16:09:42:[2]- [GeoRev::get_street_name_nominatim()]             [road] => Grote Mierenstraat
-         // 2011-07-28 16:09:42:[2]- [GeoRev::get_street_name_nominatim()]             [village] => Heffen
-         // 2011-07-28 16:09:42:[2]- [GeoRev::get_street_name_nominatim()]             [city] => Mechelen
-         // 2011-07-28 16:09:42:[2]- [GeoRev::get_street_name_nominatim()]             [boundary] => Brabantse Beek
-         // 2011-07-28 16:09:42:[2]- [GeoRev::get_street_name_nominatim()]             [country] => BelgiÃ«
-         // 2011-07-28 16:09:42:[2]- [GeoRev::get_street_name_nominatim()]             [country_code] => be
-         // 2011-07-28 16:09:42:[2]- [GeoRev::get_street_name_nominatim()]             [postcode] => 2801
+         // 2011-07-28 16:09:42:[2]- [GeoRev::()]             [road] => Grote Mierenstraat
+         // 2011-07-28 16:09:42:[2]- [GeoRev::()]             [village] => Heffen
+         // 2011-07-28 16:09:42:[2]- [GeoRev::()]             [city] => Mechelen
+         // 2011-07-28 16:09:42:[2]- [GeoRev::()]             [boundary] => Brabantse Beek
+         // 2011-07-28 16:09:42:[2]- [GeoRev::()]             [country] => BelgiÃ«
+         // 2011-07-28 16:09:42:[2]- [GeoRev::()]             [country_code] => be
+         // 2011-07-28 16:09:42:[2]- [GeoRev::()]             [postcode] => 2801
          //
          if (isset($page['address']['house_number']) and !empty($page['address']['house_number'])) {
             $house_number = $page['address']['house_number'];
          }
-         // 011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()] ( 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [place_id] => 305729 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [licence] => Data Copyright OpenStreetMap Contributors, Some Rights Reserved. CC-BY-SA 2.0. 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [osm_type] => way 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [osm_id] => 52403773 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [display_name] => De Dageraad, 7, Heiveldekens, Kontich, Waarloos, Mechelen, Brabantse Beek, BelgiÃ« 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [address] => Array 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]         ( 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [house_number] => 7 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [house] => De Dageraad 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [road] => Heiveldekens 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [city district] => Kontich 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [village] => Waarloos 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [city] => Kontich 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [boundary] => Brabantse Beek 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [country] => BelgiÃ« 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [country_code] => be 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]             [postcode] => 2550 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]         ) 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]  
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()] ) 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()] Array 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()] ( 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [0] => Heiveldekens7 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [1] => 2550 Kontich 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()]     [2] => BE 
-         // 2011-07-28 23:54:37:[2]- [GeoRev::get_street_name_nominatim()] ) 
+         // 011-07-28 23:54:37:[2]- [GeoRev::()] ( 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]     [place_id] => 305729 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]     [licence] => Data Copyright OpenStreetMap Contributors, Some Rights Reserved. CC-BY-SA 2.0. 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]     [osm_type] => way 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]     [osm_id] => 52403773 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]     [display_name] => De Dageraad, 7, Heiveldekens, Kontich, Waarloos, Mechelen, Brabantse Beek, BelgiÃ« 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]     [address] => Array 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]         ( 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]             [house_number] => 7 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]             [house] => De Dageraad 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]             [road] => Heiveldekens 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]             [city district] => Kontich 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]             [village] => Waarloos 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]             [city] => Kontich 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]             [boundary] => Brabantse Beek 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]             [country] => BelgiÃ« 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]             [country_code] => be 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]             [postcode] => 2550 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]         ) 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]  
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()] ) 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()] Array 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()] ( 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]     [0] => Heiveldekens7 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]     [1] => 2550 Kontich 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()]     [2] => BE 
+         // 2011-07-28 23:54:37:[2]- [GeoRev::()] ) 
          //
-         if (!empty($house_number)) { 
+         if (strlen($house_number)>0) { 
             $house_number = sprintf(" %s",$house_number);
          } else {
             $house_number = '';
@@ -1792,7 +1839,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       $newaddress="";
       if ($this->nominatim_page['curlinfo']['http_code']==200) {
-         $this->counters['nominatim_ok']++;
+         $this->counters['ok_nominatim']++;
          $newaddress=$this->trans->mixed_to_utf8($this->post_filter_address($address));
 
          // "51.0801183333,4.41619666667, Rumst, BE"
@@ -1803,7 +1850,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       } else {
          /* We are hitting a query problem, just skip this record */
          $this->debug( __METHOD__, "simple", 3, sprintf("Warning, Nominatim says : '%s'.", $this->nominatim_page['curlinfo']['http_code']));
-         $this->counters['nominatim_fail']++;
+         $this->counters['fail_nominatim']++;
          $this->settings['sleep_nominatim']=$this->settings['sleep_nominatim'] + 500;
       }
       $this->debug( __METHOD__, "simple", 2, sprintf("Newaddress is: '%s'.", $newaddress));
@@ -1866,7 +1913,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       $newaddress="";
       if ($this->yandex_page['curlinfo']['http_code']==200) {
-         $this->counters['yandex_ok']++;
+         $this->counters['ok_yandex']++;
          if (strlen($address)>0) {
             $newaddress=$this->trans->mixed_to_utf8($this->post_filter_address($address));
             $this->debug( __METHOD__, "simple", 2, sprintf("Yandex encoded is: '%s'.", $newaddress));
@@ -1875,13 +1922,111 @@ Not-for-profit: Application is used by a tax-exempt organization.
          }
       } else {
          $this->debug( __METHOD__, "simple", 3, sprintf("Warning, Yandex says : '%s'.", $this->yandex_page['curlinfo']['http_code']));
-         $this->counters['yandex_fail']++;
+         $this->counters['fail_yandex']++;
          $this->settings['sleep_yandex']=$this->settings['sleep_yandex'] + 500;
       }
       $this->debug(__METHOD__, "hangup",5);
       return $newaddress;
    }
 
+   public function get_street_name_cloudmade($lat=null,$lon=null) {
+      $this->debug(__METHOD__, "call",5);
+
+      if(empty($this->settings['use_cloudmade'])) {
+         return "";
+      }
+
+      if(isset($lat) and isset($lon)) {
+         if(!$this->set_coord($lat,$lon)) {
+            $this->debug(__METHOD__, "simple", 0, sprintf("Bad coordinates lat = %s, lon = %s",$lat,$lon));
+            return "";
+         }
+      } elseif(!isset($this->lat) or !isset($this->lon)) {
+         $this->debug(__METHOD__, "simple", 0, sprintf("Need to set the coordinates first or pass them as lat/lon to function %s",__FUNCTION__));
+         return "";
+      }
+
+      $this->debug(__METHOD__, "simple", 1, sprintf("Checking coordinates lat = %s, lon = %s",$this->lat, $this->lon));
+
+      $this->revgeocode_cloudmade();
+
+      //var_dump($this->cloudmade_page['contents']); exit;
+
+      $page = json_decode($this->cloudmade_page['contents'],true);
+
+      if (!is_array($page)) {
+         $this->debug( __METHOD__, "simple", 0,"Problem reading geocode results. Have you geocoded yet?");
+         return ""; 
+      }
+
+      $this->debug( __METHOD__, "simple", 2,print_r($page,true),1);
+
+      $address="";
+
+      if ($page['found'] < 0) {
+         $this->debug( __METHOD__, "simple", 0,"Nothing found for coordinates.");
+         //var_dump($page); exit(1);
+         return ""; 
+      }
+
+      // $this->debug( __METHOD__, "simple", 2,sprintf("Count = %d", $page['found']));
+
+      $count = count($page['features']);
+      $this->debug( __METHOD__, "simple", 2,sprintf("Count = %d", $count));
+      
+      $r_address=array();
+
+      if ($count > 0) {
+         foreach ($page['features'] as $details ) {
+            if (count($details['properties'])) {
+               $detail = $details['properties'];
+               if (!empty($detail['addr:housenumber'])) { $housenumber=" " . $detail['addr:housenumber']; } else { $housenumber="";}
+               if (!empty($detail['addr:postcode'])) { $postcode=$detail['addr:postcode'] . " "; } else { $postcode="";}
+               if (!empty($detail['addr:street'])) { $r_address[]=$detail['addr:street'] . $housenumber; }
+               if (!empty($detail['addr:city'])) { $r_address[]=$postcode . $detail['addr:city']; }
+               if (!empty($detail['addr:country'])) { $r_address[]=$detail['addr:country']; }
+            }
+         }
+         $address=implode(', ',$r_address); 
+      } else {
+         $this->debug( __METHOD__, "simple", 0,"Error parsing cloudmade data");
+         $this->debug( __METHOD__, "simple", 0,print_r($page,true));
+         return "";
+      }
+
+      /*
+      [addr:housenumber] => 420
+      [amenity] => bank
+      [addr:city] => Eppegem
+      [addr:postcode] => 1980
+      [atm] => yes
+      [osm_id] => 413481350
+      [osm_element] => node
+      [addr:street] => Brusselsesteenweg
+      [addr:country] => BE
+      [name] => Fortis
+      */
+
+      $this->debug( __METHOD__, "simple", 3, sprintf("RevGeo = %s|%s result = %s",$this->lat, $this->lon, $this->cloudmade_page['curlinfo']['http_code']));
+
+      $newaddress="";
+
+      if ($this->cloudmade_page['curlinfo']['http_code']==200) {
+         $this->counters['ok_cloudmade']++;
+         if (strlen($address)>0) {
+            $newaddress=$this->trans->mixed_to_utf8($this->post_filter_address($address));
+            $this->debug( __METHOD__, "simple", 2, sprintf("Cloudmade encoded is: '%s'.", $newaddress));
+         } else {
+            $this->debug( __METHOD__, "simple", 2, sprintf("Empty address line, check code."));
+         }
+      } else {
+         $this->debug( __METHOD__, "simple", 3, sprintf("Warning, Cloudmade says : '%s'.", $this->cloudmade_page['curlinfo']['http_code']));
+         $this->counters['fail_cloudmade']++;
+         $this->settings['sleep_cloudmade']=$this->settings['sleep_cloudmade'] + 500;
+      }
+      $this->debug(__METHOD__, "hangup",5);
+      return $newaddress;
+   }
 
    public function debug($func, $type="simple", $level, $message = "", $pad_me = 0) {
       /* If the debugger is disabled, retuns without doing anything */
