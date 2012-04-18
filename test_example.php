@@ -7,23 +7,26 @@ require_once("class.revgeocode.php");
 // This array can come from anywhere, but this is what the format looks like ...
 $conf = array( 
       'debug' => '1',
-      'verbose' => '3',
+      'verbose' => '2',
       'use_yahoo' => '0',
       'use_bing' => '0',
       'use_geonames' => '1',
-      'use_nominatim' => '1',
+      'use_nominatim' => '0',
       'use_google' => '0',
       'use_google_v3' => '0',
+      'use_cloudmade' => '1',
       'sleep_bing' => '2000',
       'sleep_yahoo' => '2000',
       'sleep_google' => '2000',
       'sleep_geonames' => '2000',
       'sleep_nominatim' => '2000',
+      'sleep_cloudmade' => '2000',
       'key_geonames' => 'demo',
       'key_yahoo' => '[ENTER_YAHOO_KEY_HERE]',
       'key_bing' => '[ENTER_BING_KEY_HERE]',
       'key_google' => '[GOOGLE_MAPS_V2_KEY]',
       'key_nominatim' => '[READ_NOMINATIM_LICENSE_AND_USE_EMAIL_ADDRESS_HERE]',
+      'key_cloudmade' => '[CLOUDMADE_API_KEY]',
       'google_premierid' => 'gme-[YOUR_GOOGLE_V3_GME_NAME_HERE]',
       'google_cryptokey' => '[GOOGLE_V3_CRYPTO_KEY]',
       'yahoo_max_fail' => '1',
@@ -31,29 +34,33 @@ $conf = array(
       'geonames_max_fail' => '1',
       'nominatim_max_fail' => '1',
       'google_max_fail' => '1',
+      'cloudmade_max_fail' => '1',
       'cacheservers' => array(
             array('host' => 'localhost:11211', 'name'=> 'slice001', 'type' => 'memcached' ),
             array('host' => 'localhost:11211', 'name'=> 'slice002', 'type' => 'memcached' )
             ),
       'mc_compress' => '1',
-      'mc_expire' => '100',
-      'contact_info' => 'unset@email.com'
+      'mc_expire' => '500',
+      'test_memcache' => '0',
+      'user_agent_string' => null, /* Will take the default of the class */
+      'contact_info' => ""
       );
 
 // Create a GeoRev object
 $kick_butt=new GeoRev($conf);
 
 // If you set coordinates once, they are used until you pass new ones, either using set_coord like this and get multiple sources
-//$kick_butt->set_coord(52.223254,5.17502);
+// $kick_butt->set_coord(52.223254,5.17502);
 $kick_butt->set_coord(50.974383,4.467943);
-//$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Google Location    = %s",$kick_butt->get_street_name_google()));
-$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Geonames Location  = %s",$kick_butt->get_street_name_geonames()));
-//$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Bing Location      = %s",$kick_butt->get_street_name_bing()));
-//$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Yahoo Location     = %s",$kick_butt->get_street_name_yahoo()));
+// $kick_butt->debug(__METHOD__, "simple", 1, sprintf("Google Location    = %s",$kick_butt->get_street_name_google()));
+// $kick_butt->debug(__METHOD__, "simple", 1, sprintf("Geonames Location  = %s",$kick_butt->get_street_name_geonames()));
+// $kick_butt->debug(__METHOD__, "simple", 1, sprintf("Bing Location      = %s",$kick_butt->get_street_name_bing()));
+// $kick_butt->debug(__METHOD__, "simple", 1, sprintf("Yahoo Location     = %s",$kick_butt->get_street_name_yahoo()));
+$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Cloudmade Location  = %s",$kick_butt->get_street_name_cloudmade()));
 
 // Or like this directly
-//$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Yahoo Location     = %s",$kick_butt->get_street_name_yahoo(42.510327,-89.937513)));
-$kick_butt->debug(__METHOD__, "simple", 2, $kick_butt->get_counters(),1);
+// $kick_butt->debug(__METHOD__, "simple", 1, sprintf("Yahoo Location     = %s",$kick_butt->get_street_name_yahoo(42.510327,-89.937513)));
+// $kick_butt->debug(__METHOD__, "simple", 2, $kick_butt->get_counters(),1);
 
 // Try some more: 
 
@@ -63,11 +70,9 @@ $kick_butt->debug(__METHOD__, "simple", 2, $kick_butt->get_counters(),1);
 // echo $kick_butt->get_street_name_nominatim(43.821324,-82.923615);
 // echo $kick_butt->get_street_name_google(50.974586,4.467527);
 
-// Belgium only coverage for my own server
-$kick_butt->debug(__METHOD__, "simple", 1, sprintf("Nominatim Location = %s", $kick_butt->get_street_name_nominatim()));
-
-// Check our raw cached request (curlinfo + output) per engine:
-$kick_butt->debug(__METHOD__, "simple",1, print_r($kick_butt->google_page,true));
-$kick_butt->debug(__METHOD__, "simple",1, print_r($kick_butt->yahoo_page,true));
+// $kick_butt->debug(__METHOD__, "simple",1, print_r($kick_butt->geonames_page,true));
+$kick_butt->debug(__METHOD__, "simple",1, print_r($kick_butt->cloudmade_page,true));
+//$kick_butt->debug(__METHOD__, "simple",1, print_r($kick_butt->google_page,true));
+//$kick_butt->debug(__METHOD__, "simple",1, print_r($kick_butt->yahoo_page,true));
 
 // END TEST CASE 

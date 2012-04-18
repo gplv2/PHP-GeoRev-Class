@@ -3,7 +3,7 @@
 Introduction
 ============
 
-[PHP-GeoRev-Class](http://github.com/gplv2/PHP-GeoRev-Class/) is a non-bloated class that makes it easy to use up to 5 supported engines to decode lat/long coordinates to a street name.  It uses JSON all the way internally, so no XML format to throw up over.  This class can be extended to consult any json capable engines for the reverse geocoding information they provide on a lat/lon pair. Optionally uses memcache to cache this information. It's intended use is to sit behind a map that has certain points you want to geocode in advance.  Most providers do not allow you to geocode anything you won't show on their maps and they also don't like you to save this information permanently but they do recommend a caching policy.  Be informed in advance about this.
+[PHP-GeoRev-Class](http://github.com/gplv2/PHP-GeoRev-Class/) is a non-bloated class that makes it easy to use up to 6 supported engines to decode lat/long coordinates to a street name.  It uses JSON all the way internally, so no XML format to throw up over.  This class can be extended to consult any json capable engines for the reverse geocoding information they provide on a lat/lon pair. Optionally uses memcache to cache this information. It's intended use is to sit behind a map that has certain points you want to geocode in advance.  Most providers do not allow you to geocode anything you won't show on their maps and they also don't like you to save this information permanently but they do recommend a caching policy.  Be informed in advance about this.
 
 I made this to compair them in depth on their quality/results.
 
@@ -12,7 +12,7 @@ I made this to compair them in depth on their quality/results.
 - Google V2 and V3 supported (Enterprise users)  As an added bonus this supports google V3 Premier ID's too where you need to sign urls.  (so called gme- keys @ google).  The code to sign those is included.
 - Handy timing support to throttle back the requests, not by sleeping a fixed amount but by checking how long ago you've hit that particular engine
 - MemCached supported
-- 5 popular engines supported
+- 6 popular engines supported
 - Usage statistics on engines/memcached
 
 #### Reverse geocoding engines
@@ -21,8 +21,9 @@ I made this to compair them in depth on their quality/results.
 - [Bing](http://dev.virtualearth.net/REST/v1/Locations/50.43434,4.5232323?o=json&key=[key_here])
 - [Nominatim](http://open.mapquestapi.com/nominatim/v1/reverse?format=json&json_callback=renderExampleThreeResults&lat=51.521435&lon=-0.162714) By Mapquest Open
 - [GeoNames](http://api.geonames.org/findNearbyPlaceNameJSON?lat=%s&lng=%s&username=%s&style=full)
+- [Cloudmade](http://geocoding.cloudmade.com/<an_api_key>/geocoding/v2/find.js?object_type=address&around=51.0433583233,4.49876833333&distance=closest)
 
-Api key links (incomplete)
+Api key signup links (incomplete)
 --------------------------
 - Google Maps API key: http://code.google.com/apis/maps/signup.html
 - Yahoo Placefinder Maps API key: http://developer.yahoo.com/maps/simple/
