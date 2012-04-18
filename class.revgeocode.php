@@ -1758,10 +1758,10 @@ Not-for-profit: Application is used by a tax-exempt organization.
          // 2011-07-28 23:54:37:[2]- [GeoRev::()]     [2] => BE 
          // 2011-07-28 23:54:37:[2]- [GeoRev::()] ) 
          //
+
+         $house_number = '';
          if (strlen($house_number)>0) { 
             $house_number = sprintf(" %s",$house_number);
-         } else {
-            $house_number = '';
          }
 
          if (isset($page['address']['road']) and !empty($page['address']['road'])) {
