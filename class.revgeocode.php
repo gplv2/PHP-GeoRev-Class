@@ -76,9 +76,6 @@ Class GeoRev {
          'cloudmade' => array('timer_name' => 'cm_timer','sleep_setting' => 'sleep_cloudmade')
          );
 
-   // Keep track of what works
-   private $engine_states;
-
    // Runtime helper vars
    private $eol;
    private $trans;
@@ -130,7 +127,7 @@ Class GeoRev {
       }
 
       /* Determine the state of the engines from the settings */
-      $auto_settings['can_use_google_v3'] = !empty($conf_settings['google_premierid']) ? 1 : 0;
+      $auto_settings['can_use_google_v3'] = (!empty($conf_settings['google_premierid']) and !empty($conf_settings['use_google']) ) ? 1 : 0;
       $auto_settings['can_use_google']    = !empty($conf_settings['use_google'])       ? 1 : 0;
       $auto_settings['can_use_yahoo']     = !empty($conf_settings['key_yahoo'])        ? 1 : 0;
       $auto_settings['can_use_bing']      = !empty($conf_settings['key_bing'])         ? 1 : 0;
@@ -145,7 +142,6 @@ Class GeoRev {
       // Merge the autosettings with the settings
       $this->settings = array_merge($this->settings, $auto_settings);
 
-      // $this->debug(__METHOD__, "simple" , 1, $this->settings,1);
       // $this->debug(__METHOD__, "simple" , 1, "",1);
 
       // Set the correct debug values
@@ -159,14 +155,15 @@ Class GeoRev {
 
       $this->debug(__METHOD__, "simple" , 1, $this->settings,1);
 
-      // Record the engine states for later
-      $this->engine_states=$auto_settings;
-
+/*
       // Check for engine availability right off the bat before going further, we can't do anything meaningfull without atleast 1
-      if (!$this->engines_available()) {
+      if (!$this->count_engines_available()) {
          $this->debug(__METHOD__, "simple", 0, sprintf("No geocoding engine available, check config file for key / parameter settings"));
          exit;
       }
+*/
+
+      var_Dump($this->get_engine_settings());
 
       /* Analyse config settings for memcached servers */
       if (isset($conf_settings['cacheservers']) and is_array($conf_settings['cacheservers'])) {
@@ -1181,10 +1178,10 @@ Not-for-profit: Application is used by a tax-exempt organization.
       return $Longitude;
    }
 
-   private function engines_available($specific_engine=null){
+   private function count_engines_available($specific_engine=null){
       $any_around=0;
       if (!isset($specific_engine)) {
-         foreach($this->engine_states as $key => $val) {
+         foreach($this->get_engine_settings() as $key => $val) {
             if ($val>0) {
                $any_around=1;
                break;
@@ -1192,12 +1189,31 @@ Not-for-profit: Application is used by a tax-exempt organization.
          }
       } else {
          $key=sprintf("can_use_%s",$specific_engine);
-         if ($this->engine_states[$key]==1){
+         if ($val==1){
             $any_around=1;
          }
       }
       return $any_around;
    }
+
+   private function get_engines_available(){
+      $any_around=0;
+      if (!isset($specific_engine)) {
+         foreach($this->get_engine_settings() as $key => $val) {
+            if ($val>0) {
+               $any_around=1;
+               break;
+            } 
+         }
+      } else {
+         $key=sprintf("can_use_%s",$specific_engine);
+         if ($val==1){
+            $any_around=1;
+         }
+      }
+      return $any_around;
+   }
+
 
    // timer core 
    private function throttle_service($service_name) {
@@ -2026,6 +2042,21 @@ Not-for-profit: Application is used by a tax-exempt organization.
       }
       $this->debug(__METHOD__, "hangup",5);
       return $newaddress;
+   }
+
+   public function get_street_name_any($lat=null,$lon=null,$order_pref=null) {
+      /* Get a street from any available engine until you can of run out of engines to consult */
+      //$this->debug(__METHOD__, "simple", 2, $this->engines_available());
+      //$this->debug( __METHOD__, "simple", 2,$this->count_engines_available());
+      return "";
+   }
+
+   public function get_engine_settings() {
+      /* Get the state of the geocoding engines from the active settings */
+      //$this->debug(__METHOD__, "simple", 2, $this->engines_available());
+      $this->debug( __METHOD__, "simple", 2, array_keys($this->settings),1);
+      //print_r($this->settings);
+      return "";
    }
 
    public function debug($func, $type="simple", $level, $message = "", $pad_me = 0) {
