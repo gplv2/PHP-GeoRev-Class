@@ -2057,7 +2057,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       // print_r(array_diff($this->get_engines_available(), $preferred));
       // print_r($preferred);
       
-      $engines_in_order = array_merge($preferred , array_diff($this->get_engines_available(), $preferred));
+      $engines_in_order = array_merge($preferred , array_diff($available, $preferred));
       foreach($engines_in_order as $engine) {
          $geocoder = sprintf('get_street_name_%s',$engine);
          $this->debug( __METHOD__, "simple", 3, sprintf("Trying -> %s",$geocoder));
