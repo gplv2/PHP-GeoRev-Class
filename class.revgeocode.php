@@ -106,7 +106,7 @@ Class GeoRev {
    public $verbose;
 
    public function __construct($conf_settings) {
-      /* test if we are called from the CLI */
+      /* My own test if we are called from the CLI , could use PHP_EOL instead I know */
       if (defined('STDIN')) {
          $this->eol="\n";
       } else {
@@ -114,9 +114,9 @@ Class GeoRev {
       }
 
       if (!isset($conf_settings)) {
-				echo __METHOD__ . ": config error\n";
-				exit(0);
-			}
+	      echo __METHOD__ . ": config error\n";
+      exit(0);
+	   }
 
       /* Prepare this one already */
       $this->trans= new Latin1UTF8();
@@ -155,6 +155,7 @@ Class GeoRev {
 
       $this->debug(__METHOD__, "simple" , 1, $this->settings,1);
 
+      $this->count_engines_available();
 /*
       // Check for engine availability right off the bat before going further, we can't do anything meaningfull without atleast 1
       if (!$this->count_engines_available()) {
@@ -162,9 +163,6 @@ Class GeoRev {
          exit;
       }
 */
-
-      var_Dump($this->get_engine_settings());
-
       /* Analyse config settings for memcached servers */
       if (isset($conf_settings['cacheservers']) and is_array($conf_settings['cacheservers'])) {
          // We have some settings, lets try to see if they work.
@@ -1179,41 +1177,11 @@ Not-for-profit: Application is used by a tax-exempt organization.
    }
 
    private function count_engines_available($specific_engine=null){
-      $any_around=0;
-      if (!isset($specific_engine)) {
-         foreach($this->get_engine_settings() as $key => $val) {
-            if ($val>0) {
-               $any_around=1;
-               break;
-            } 
-         }
-      } else {
-         $key=sprintf("can_use_%s",$specific_engine);
-         if ($val==1){
-            $any_around=1;
-         }
-      }
-      return $any_around;
+      $this->debug(__METHOD__, "call",5);
+      $count=count($this->get_engines_available($specific_engine));
+      $this->debug( __METHOD__, "simple", 3, sprintf("Engine count -> %s",$count));
+      return $count;
    }
-
-   private function get_engines_available(){
-      $any_around=0;
-      if (!isset($specific_engine)) {
-         foreach($this->get_engine_settings() as $key => $val) {
-            if ($val>0) {
-               $any_around=1;
-               break;
-            } 
-         }
-      } else {
-         $key=sprintf("can_use_%s",$specific_engine);
-         if ($val==1){
-            $any_around=1;
-         }
-      }
-      return $any_around;
-   }
-
 
    // timer core 
    private function throttle_service($service_name) {
@@ -2044,19 +2012,83 @@ Not-for-profit: Application is used by a tax-exempt organization.
       return $newaddress;
    }
 
-   public function get_street_name_any($lat=null,$lon=null,$order_pref=null) {
+   public function get_street_name_all($lat=null,$lon=null) {
+      $this->debug(__METHOD__, "call",5);
       /* Get a street from any available engine until you can of run out of engines to consult */
+
+      if(isset($lat) and isset($lon)) {
+         if(!$this->set_coord($lat,$lon)) {
+            $this->debug(__METHOD__, "simple", 0, sprintf("Bad coordinates lat = %s, lon = %s",$lat,$lon));
+            return "";
+         }
+      } elseif(!isset($this->lat) or !isset($this->lon)) {
+         $this->debug(__METHOD__, "simple", 0, sprintf("Need to set the coordinates first or pass them as lat/lon to function %s",__FUNCTION__));
+         return "";
+      }
+
+      foreach($this->get_engines_available() as $engine ) {
+         $this->debug( __METHOD__, "simple", 3, sprintf("Trying -> %s",$engine));
+         $geocoder = sprintf('get_street_name_%s',$engine);
+         // Calls the variable method
+         $result[$engine]=$this->$geocoder();
+      }
       //$this->debug(__METHOD__, "simple", 2, $this->engines_available());
-      //$this->debug( __METHOD__, "simple", 2,$this->count_engines_available());
-      return "";
+      return $result;
    }
 
-   public function get_engine_settings() {
-      /* Get the state of the geocoding engines from the active settings */
+   public function get_street_name_any($lat=null,$lon=null,$preferred=array()) {
+      $this->debug(__METHOD__, "call",5);
+      /* Get a street from any available engine until you can of run out of engines to consult */
+
+      if(isset($lat) and isset($lon)) {
+         if(!$this->set_coord($lat,$lon)) {
+            $this->debug(__METHOD__, "simple", 0, sprintf("Bad coordinates lat = %s, lon = %s",$lat,$lon));
+            return array();
+         }
+      } elseif(!isset($this->lat) or !isset($this->lon)) {
+         $this->debug(__METHOD__, "simple", 0, sprintf("Need to set the coordinates first or pass them as lat/lon to function %s",__FUNCTION__));
+         return array();
+      }
+
+      // first the preferred
+      // Then the rest
+      $available = $this->get_engines_available();
+
+      // print_r(array_diff($this->get_engines_available(), $preferred));
+      // print_r($preferred);
+      
+      $engines_in_order = array_merge($preferred , array_diff($this->get_engines_available(), $preferred));
+      foreach($engines_in_order as $engine) {
+         $geocoder = sprintf('get_street_name_%s',$engine);
+         $this->debug( __METHOD__, "simple", 3, sprintf("Trying -> %s",$geocoder));
+         // Calls the variable method
+         $result[$engine]=$this->$geocoder();
+         if(strlen($result[$engine])) {
+            break;
+         }
+      }
       //$this->debug(__METHOD__, "simple", 2, $this->engines_available());
-      $this->debug( __METHOD__, "simple", 2, array_keys($this->settings),1);
-      //print_r($this->settings);
-      return "";
+      return $result;
+   }
+
+   public function get_engines_available() {
+      $this->debug(__METHOD__, "call",5);
+      // $this->debug( __METHOD__, "simple", 2, array_keys($this->settings),1);
+
+      /* Get the state of the geocoding engines from the active settings */
+      $engines_enabled=array();
+      foreach (array_keys($this->settings) as $key => $val) {
+         // $this->debug( __METHOD__, "simple", 2, "Analysing key: " . $val);
+         if (preg_match("/^can_use_(.+)/", $val , $matches)) {
+            if ($this->settings[$val] > 0 ) {
+               //print_r($matches);
+               $this->debug( __METHOD__, "simple", 2, "Added engine : " . $val);
+               $engines_enabled[]=$matches[1];
+            }
+         }
+      }
+      // print_r($this->settings);
+      return $engines_enabled;
    }
 
    public function debug($func, $type="simple", $level, $message = "", $pad_me = 0) {
