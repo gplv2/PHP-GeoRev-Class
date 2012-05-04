@@ -55,6 +55,7 @@ Class GeoRev {
          'sleep_google' => '5000',
          'sleep_geonames' => '5000',
          'sleep_nominatim' => '5000',
+         // Note yandex doesn't work too wel atm ...
          'sleep_yandex' => '5000',
          'sleep_cloudmade' => '5000',
          'mc_compress' => 1,
@@ -63,17 +64,16 @@ Class GeoRev {
          'mc_expire' => 500
          );
 
-   // Note yandex doesn't work ...
 
    // This kinda maps what belongs to who
    private $service_variable_map = array (
-         'bing' => array('timer_name' => 'bi_timer','sleep_setting' => 'sleep_bing'),
-         'yahoo' => array('timer_name' => 'ya_timer','sleep_setting' => 'sleep_yahoo'),
-         'google' => array('timer_name' => 'go_timer','sleep_setting' => 'sleep_google'),
-         'geonames' => array('timer_name' => 'ge_timer','sleep_setting' => 'sleep_geonames'),
-         'nominatim' => array('timer_name' => 'no_timer','sleep_setting' => 'sleep_nominatim'),
-         'yandex' => array('timer_name' => 'gp_timer','sleep_setting' => 'sleep_yandex'),
-         'cloudmade' => array('timer_name' => 'cm_timer','sleep_setting' => 'sleep_cloudmade')
+         'bing' => array('timer_name' => 'bi_timer','sleep_setting' => 'sleep_bing', 'page'=> 'bing_page'),
+         'yahoo' => array('timer_name' => 'ya_timer','sleep_setting' => 'sleep_yahoo', 'page'=> 'yahoo_page'),
+         'google' => array('timer_name' => 'go_timer','sleep_setting' => 'sleep_google', 'page'=> 'google_page'),
+         'geonames' => array('timer_name' => 'ge_timer','sleep_setting' => 'sleep_geonames', 'page'=> 'geonames_page'),
+         'nominatim' => array('timer_name' => 'no_timer','sleep_setting' => 'sleep_nominatim', 'page'=> 'nominatim_page'),
+         // 'yandex' => array('timer_name' => 'gp_timer','sleep_setting' => 'sleep_yandex', 'page'=> 'yandex_page'),
+         'cloudmade' => array('timer_name' => 'cm_timer','sleep_setting' => 'sleep_cloudmade', 'page'=> 'cloudmade_page')
          );
 
    // Runtime helper vars
@@ -239,10 +239,18 @@ Class GeoRev {
             );
       $this->register_counter($init_counters,0);
 
-      // timers for the services (this could be a loop over $service_variable_map , would be better but cucombersome as they say)
-      $init_timers = array ('go_timer','ya_timer','bi_timer','ge_timer','no_timer','gp_timer','cm_timer');
-      $this->register_counter($init_timers,microtime(true));
-
+      // Register the timers for all services (used to be a bit more hardcoded)
+      foreach ($this->service_variable_map as $engine => $service ) {
+         // timers are = array ('go_timer','ya_timer','bi_timer','ge_timer','no_timer','gp_timer','cm_timer');
+         if ($this->get_engines_available($engine)) {
+            $sleep_service = $service['sleep_setting'];
+            $minimum_sleep = $sleep_service*1000;
+            $timer_name = $service['timer_name'];
+            $this->debug( __METHOD__, "simple", 3, sprintf("Registering timer -> %s",$engine));
+            // We have to substract the delay when setting the start value
+            $this->register_counter($timer_name, (microtime(true) - $minimum_sleep));
+         }
+      }
       // $this->debug(__METHOD__, "simple", 1, $this->counters);
    }
 
