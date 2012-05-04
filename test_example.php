@@ -55,8 +55,9 @@ $kick_butt->set_coord(50.974383,4.467943);
 // $kick_butt->debug(__METHOD__, "simple", 1, sprintf("Cloudmade Location  = %s",$kick_butt->get_street_name_cloudmade()));
 $kick_butt->debug(__METHOD__, "simple", 1, sprintf("The first from any engine that works = %s",print_r($kick_butt->get_street_name_any(null,null,array('nominatim','yahoo')),true)));
 //
-$kick_butt->debug(__METHOD__, "simple", 1, sprintf("From all engines = %s",print_r($kick_butt->get_street_name_all(),true)));
 /*
+$kick_butt->debug(__METHOD__, "simple", 1, sprintf("From all engines = %s",print_r($kick_butt->get_street_name_all(),true)));
+$kick_butt->debug(__METHOD__, "simple", 1, sprintf("From all engine = %s",print_r($kick_butt->get_street_name_all(),true)));
 Gives me this nice little comparison with 6 engines on:
 2012-04-28 18:45:06:[1]- [Main()] (
 2012-04-28 18:45:06:[1]- [Main()]     [google] => Damstraat 113-119, 1982 Zemst, BE
