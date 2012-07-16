@@ -1029,7 +1029,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
       } else {
          $baseurls= array(
             array('url' => 'http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim' ),
-            array('url' => 'http://nominatim.dyndns.org/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim' )
+            array('url' => 'http://nominatim.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim' )
          );
       }
 /*
