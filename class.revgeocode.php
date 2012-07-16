@@ -1078,6 +1078,7 @@ PHP Notice:  Undefined variable: curlinfo in /home/glenn/repos/PHP-GeoRev-Class/
          $this->debug( __METHOD__, "simple", 5, $curlinfo,1);
 
          if ($curlinfo['http_code']!=200) {
+            $this->debug( __METHOD__, "simple", 2, sprintf("Fail on url '%s'", $baseurls[$used_services]['url']));
             $this->counters['fail_nominatim']++;
          } else {
             $keep_trying_url=false;
@@ -1090,6 +1091,7 @@ PHP Notice:  Undefined variable: curlinfo in /home/glenn/repos/PHP-GeoRev-Class/
       }
 
       if ($curlinfo['http_code']!=200) {
+         $this->debug( __METHOD__, "simple", 2, sprintf("Fail on url '%s'", $baseurls[$used_services]['url']));
          return "";
       }
 
