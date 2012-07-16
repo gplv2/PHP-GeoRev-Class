@@ -58,6 +58,8 @@ Class GeoRev {
          // Note yandex doesn't work too wel atm ...
          'sleep_yandex' => '5000',
          'sleep_cloudmade' => '5000',
+         'curl_connecttimeout' => '5',
+         'curl_connecttimeout_ms' => '5000',
          'mc_compress' => 1,
          'mc_compress' => 1,
          'user_agent_string' => 'php-lib ( https://github.com/gplv2/PHP-GeoRev-Class )',
@@ -104,6 +106,9 @@ Class GeoRev {
    // Dev aid
    public $debug;
    public $verbose;
+
+   // Urls per service
+   private $urls=array();
 
    public function __construct($conf_settings) {
       /* My own test if we are called from the CLI , could use PHP_EOL instead I know */
@@ -163,6 +168,23 @@ Class GeoRev {
          exit;
       }
 */
+      /* Analyse config settings for url servers */
+      if (isset($conf_settings['server_urls']) and is_array($conf_settings['server_urls'])) {
+         // We have some settings, lets try to see if they work.
+         $url_servers = array();
+
+         foreach($conf_settings['server_urls'] as $url_server){
+            if (strcmp($url_server['type'], "nominatim")==0) {
+               $this->debug(__METHOD__, "simple" , 2, sprintf("Adding '%s' nominatim url",$url_server['url']));
+               $url_servers[] = $url_server;
+            } else {
+               $this->debug(__METHOD__, "simple" , 2, sprintf("Ignoring '%s' entry",$url_server['url']));
+            }
+         }
+         $this->urls=$url_servers;
+      }
+
+
       /* Analyse config settings for memcached servers */
       if (isset($conf_settings['cacheservers']) and is_array($conf_settings['cacheservers'])) {
          // We have some settings, lets try to see if they work.
@@ -998,29 +1020,73 @@ Not-for-profit: Application is used by a tax-exempt organization.
       // The standard one
       //$baseurl = "http://open.mapquestapi.com/nominatim/v1/reverse?format=json&lat=%s&lon=%s&email=%s";
       // My own, with only belgium covered, this should go into the options really
-		$baseurl = "http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5";
-      $url = sprintf($baseurl,$this->lat,$this->lon,$this->settings['key_nominatim']);
 
-      $this->debug( __METHOD__, "simple", 2, sprintf("Geocoding url '%s'", $url));
-      $this->counters['hit_nominatim']++;
+      $my_services=$this->getserviceurls($tag);
+      $total_services=count($my_services);
 
-      /* Do it with curl */
-      $ch = curl_init($url);
+      if ($total_services>0) {
+         $baseurls=$my_services;
+      } else {
+		   $baseurls[] = "http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5";
+      }
+/*
+PHP Notice:  Undefined variable: url in /home/glenn/repos/PHP-GeoRev-Class/class.revgeocode.php on line 1033
+2012-07-16 13:32:14:[2]- [GeoRev::revgeocode_nominatim()] Geocoding url ''
+PHP Notice:  Undefined variable: keep_trying_url in /home/glenn/repos/PHP-GeoRev-Class/class.revgeocode.php on line 1037
+PHP Notice:  Undefined variable: curlinfo in /home/glenn/repos/PHP-GeoRev-Class/class.revgeocode.php on line 1079
+2012-07-16 13:32:14:[0]- [GeoRev::get_street_name_nominatim()] Problem reading geocode results. Have you geocoded yet?
+*/
 
-      // set user agent
-      curl_setopt($ch, CURLOPT_USERAGENT, $this->settings['user_agent_string']);
 
-      curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
-      curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
+      $used_services=0;
+      $keep_trying_url=true;
 
-      $server_output = curl_exec($ch);
-      $curlinfo = curl_getinfo($ch);
-      curl_close($ch);
+      while($keep_trying_url) {
+         $this->debug( __METHOD__, "simple", 2, sprintf("Geocoding url '%s'", $baseurls[$used_services]['url']));
+         $this->counters['hit_nominatim']++;
 
-      $this->debug( __METHOD__, "simple", 5, $curlinfo,1);
+         $url = sprintf($baseurls[$used_services]['url'],$this->lat,$this->lon,$this->settings['key_nominatim']);
+         /* Do it with curl */
+         $ch = curl_init($url);
+
+         // set user agent
+         curl_setopt($ch, CURLOPT_USERAGENT, $this->settings['user_agent_string']);
+
+         if (isset($this->settings['curl_connecttimeout'])) {
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->settings['curl_connecttimeout']);
+         } else {
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+         }
+         if (isset($this->settings['curl_connecttimeout_ms'])) {
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, $this->settings['curl_connecttimeout_ms']);
+         } else {
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, 5000);
+         }
+
+         //curl_setopt($ch, CURLOPT_TIMEOUT, $this->settings['user_agent_string']);
+         //curl_setopt($ch, CURLOPT_TIMEOUT_MS, $this->settings['user_agent_string']);
+
+         curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
+         curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); # We need this for the code I found in gazetteer to not throw errors
+
+         $server_output = curl_exec($ch);
+         $curlinfo = curl_getinfo($ch);
+         curl_close($ch);
+         $this->debug( __METHOD__, "simple", 5, $curlinfo,1);
+
+         if ($curlinfo['http_code']!=200) {
+            $this->counters['fail_nominatim']++;
+         } else {
+            $keep_trying_url=false;
+         }
+         $used_services++;
+         /* Check to see if we have services left tot try */
+         if($used_services>=$total_services) {
+            $keep_trying_url=false;
+         }
+      }
 
       if ($curlinfo['http_code']!=200) {
-         $this->counters['fail_nominatim']++;
          return "";
       }
 
@@ -1045,6 +1111,19 @@ Not-for-profit: Application is used by a tax-exempt organization.
       return 1;
    }
 
+   private function getserviceurls($service){
+      $hits=array();
+      if (!empty($service)) {
+         foreach($this->urls as $url) {
+            if(strcmp($url['type'],$service)==0) {
+               $hits[]=$url;
+            }
+         }
+      } else {
+         return array();
+      }
+      return ($hits);
+   }
 
    // Helper functions
    private function post_filter_address($location) {

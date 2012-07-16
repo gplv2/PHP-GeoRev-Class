@@ -24,17 +24,23 @@ $conf = array(
       'key_google' => 'key',
       'key_nominatim' => 'test@byte-consult.be',
       'key_cloudmade' => '',
+      'curl_connecttimeout' => 5,
+      'curl_connecttimeout_ms' => 5000,
       'google_premierid' => '',
       'google_cryptokey' => '',
       'yahoo_max_fail' => '1',
       'bing_max_fail' => '1',
       'geonames_max_fail' => '1',
-      'nominatim_max_fail' => '1',
+      'nominatim_max_fail' => '2',
       'google_max_fail' => '1',
       'cloudmade_max_fail' => '1',
       'cacheservers' => array(
             array('host' => 'localhost:11211', 'name'=> 'slice001', 'type' => 'memcached' ),
             array('host' => 'localhost:11211', 'name'=> 'slice002', 'type' => 'memcached' )
+            ),
+      'server_urls' => array(
+            array('url' => 'http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim' ),
+            array('url' => 'http://nominatim.dyndns.org/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim' )
             ),
       'mc_compress' => '1',
       'mc_expire' => '500',
