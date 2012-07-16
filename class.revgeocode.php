@@ -1027,7 +1027,10 @@ Not-for-profit: Application is used by a tax-exempt organization.
       if ($total_services>0) {
          $baseurls=$my_services;
       } else {
-		   $baseurls[] = "http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5";
+         $baseurls= array(
+            array('url' => 'http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim' ),
+            array('url' => 'http://nominatim.dyndns.org/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim' )
+         );
       }
 /*
 PHP Notice:  Undefined variable: url in /home/glenn/repos/PHP-GeoRev-Class/class.revgeocode.php on line 1033
