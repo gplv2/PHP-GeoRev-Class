@@ -58,8 +58,8 @@ Class GeoRev {
          // Note yandex doesn't work too wel atm ...
          'sleep_yandex' => '5000',
          'sleep_cloudmade' => '5000',
-         'curl_connecttimeout' => '5',
-         'curl_connecttimeout_ms' => '5000',
+         'curl_connecttimeout' => '2',
+         'curl_connecttimeout_ms' => '2000',
          'mc_compress' => 1,
          'mc_compress' => 1,
          'user_agent_string' => 'php-lib ( https://github.com/gplv2/PHP-GeoRev-Class )',
@@ -109,6 +109,7 @@ Class GeoRev {
 
    // Urls per service
    private $urls=array();
+   private $hints=array();
 
    public function __construct($conf_settings) {
       /* My own test if we are called from the CLI , could use PHP_EOL instead I know */
@@ -174,8 +175,10 @@ Class GeoRev {
          $url_servers = array();
 
          foreach($conf_settings['server_urls'] as $url_server){
-            if (strcmp($url_server['type'], "nominatim")==0) {
+            if (strcmp($url_server['type'], "nominatim")== 0) {
                $this->debug(__METHOD__, "simple" , 2, sprintf("Adding '%s' nominatim url",$url_server['url']));
+               $url_server['state']=1;
+               $url_server['last_error']='';
                $url_servers[] = $url_server;
             } else {
                $this->debug(__METHOD__, "simple" , 2, sprintf("Ignoring '%s' entry",$url_server['url']));
@@ -1015,40 +1018,49 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       }
       $this->throttle_service($tag);
-      $this->debug( __METHOD__, "simple", 2, sprintf("Encoding with Nominatim"));
+      $this->debug( __METHOD__, "simple", 2, sprintf("Encoding with Nominatim support"));
 
-      // The standard one
-      //$baseurl = "http://open.mapquestapi.com/nominatim/v1/reverse?format=json&lat=%s&lon=%s&email=%s";
-      // My own, with only belgium covered, this should go into the options really
+      $our_services=$this->getserviceurls($tag);
+      $total_services=count($our_services);
 
-      $my_services=$this->getserviceurls($tag);
-      $total_services=count($my_services);
-
-      if ($total_services>0) {
-         $baseurls=$my_services;
-      } else {
-         $baseurls= array(
-            array('url' => 'http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim' ),
-            array('url' => 'http://nominatim.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim' )
+      // Fall back on hardcoded server list for now
+      if ($total_services<=0) {
+         $our_services= array(
+            array('url' => 'http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim'  , 'state'=> 1, 'last_error'=>''),
+            array('url' => 'http://nominatim.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim'  , 'state'=> 1, 'last_error'=>'')
          );
       }
-/*
-PHP Notice:  Undefined variable: url in /home/glenn/repos/PHP-GeoRev-Class/class.revgeocode.php on line 1033
-2012-07-16 13:32:14:[2]- [GeoRev::revgeocode_nominatim()] Geocoding url ''
-PHP Notice:  Undefined variable: keep_trying_url in /home/glenn/repos/PHP-GeoRev-Class/class.revgeocode.php on line 1037
-PHP Notice:  Undefined variable: curlinfo in /home/glenn/repos/PHP-GeoRev-Class/class.revgeocode.php on line 1079
-2012-07-16 13:32:14:[0]- [GeoRev::get_street_name_nominatim()] Problem reading geocode results. Have you geocoded yet?
-*/
 
+      // Count again to make sure
+      $total_services=count($our_services);
 
-      $used_services=0;
+      if (!isset($this->hints[$tag])) {
+         $this->debug( __METHOD__, "simple", 2, sprintf("Registering hints : %s",count($our_services)));
+         $this->hints[$tag]=$our_services;
+         //$this->hints[$tag]['current']=;
+      }
+
+      $current_service_number = (isset($this->hints[$tag]['current']) ? $this->hints[$tag]['current'] : 0 ); // = 0 when started 1st time
+
       $keep_trying_url=true;
-
       while($keep_trying_url) {
-         $this->debug( __METHOD__, "simple", 2, sprintf("Geocoding url '%s'", $baseurls[$used_services]['url']));
+         /* Checking the state of this engine first */
+         if ($our_services[$current_service_number]['state'] !== 1) {
+            /* Seems this service has been marked as down */
+            $current_service_number++;
+         }
+
+         /* Check to see if we have services left tot try */
+         if($current_service_number>=$total_services) {
+            $this->hints[$tag]['current'] = 0;
+            $keep_trying_url=false;
+            break;
+         }
+         
+         $this->debug( __METHOD__, "simple", 2, sprintf("Geocoding url '%s'", $our_services[$current_service_number]['url']));
          $this->counters['hit_nominatim']++;
 
-         $url = sprintf($baseurls[$used_services]['url'],$this->lat,$this->lon,$this->settings['key_nominatim']);
+         $url = sprintf($our_services[$current_service_number]['url'],$this->lat,$this->lon,$this->settings['key_nominatim']);
          /* Do it with curl */
          $ch = curl_init($url);
 
@@ -1060,6 +1072,7 @@ PHP Notice:  Undefined variable: curlinfo in /home/glenn/repos/PHP-GeoRev-Class/
          } else {
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
          }
+
          if (isset($this->settings['curl_connecttimeout_ms'])) {
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, $this->settings['curl_connecttimeout_ms']);
          } else {
@@ -1075,23 +1088,22 @@ PHP Notice:  Undefined variable: curlinfo in /home/glenn/repos/PHP-GeoRev-Class/
          $server_output = curl_exec($ch);
          $curlinfo = curl_getinfo($ch);
          curl_close($ch);
+
          $this->debug( __METHOD__, "simple", 5, $curlinfo,1);
 
          if ($curlinfo['http_code']!=200) {
-            $this->debug( __METHOD__, "simple", 2, sprintf("Fail on url '%s'", $baseurls[$used_services]['url']));
+            $this->debug( __METHOD__, "simple", 2, sprintf("Fail on url '%s'", $our_services[$current_service_number]['url']));
+            $our_services[$current_service_number]['state'] = 0;
             $this->counters['fail_nominatim']++;
          } else {
             $keep_trying_url=false;
+            $this->hints[$tag]['current'] = $current_service_number;
          }
-         $used_services++;
-         /* Check to see if we have services left tot try */
-         if($used_services>=$total_services) {
-            $keep_trying_url=false;
-         }
+         $current_service_number++;
       }
 
       if ($curlinfo['http_code']!=200) {
-         $this->debug( __METHOD__, "simple", 2, sprintf("Fail on url '%s'", $baseurls[$used_services]['url']));
+         $this->debug( __METHOD__, "simple", 2, sprintf("Fail on url '%s'", $our_services[$current_service_number]['url']));
          return "";
       }
 
@@ -1120,7 +1132,7 @@ PHP Notice:  Undefined variable: curlinfo in /home/glenn/repos/PHP-GeoRev-Class/
       $hits=array();
       if (!empty($service)) {
          foreach($this->urls as $url) {
-            if(strcmp($url['type'],$service)==0) {
+            if((strcmp($url['type'],$service)==0) && ($url['state'] == 1)) {
                $hits[]=$url;
             }
          }

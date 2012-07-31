@@ -39,8 +39,8 @@ $conf = array(
             array('host' => 'localhost:11211', 'name'=> 'slice002', 'type' => 'memcached' )
             ),
       'server_urls' => array(
-            array('url' => 'http://nominatim.dyndns.org/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim' ),
-            array('url' => 'http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim' )
+            array('url' => 'http://nominatim.dyndns.org/reversed.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim' , 'state'=> 1, 'last_error'=>''),
+            array('url' => 'http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim' , 'state'=> 1, 'last_error'=>'')
             ),
       'mc_compress' => '1',
       'mc_expire' => '500',
@@ -60,6 +60,8 @@ $kick_butt->set_coord(50.974383,4.467943);
 // $kick_butt->debug(__METHOD__, "simple", 1, sprintf("Yahoo Location     = %s",$kick_butt->get_street_name_yahoo()));
 // $kick_butt->debug(__METHOD__, "simple", 1, sprintf("Cloudmade Location  = %s",$kick_butt->get_street_name_cloudmade()));
 $kick_butt->debug(__METHOD__, "simple", 1, sprintf("The first from any engine that works = %s",print_r($kick_butt->get_street_name_any(null,null,array('nominatim','yahoo')),true)));
+$kick_butt->set_coord(51.023795,4.539605);
+$kick_butt->debug(__METHOD__, "simple", 1, sprintf("The second from any engine that works = %s",print_r($kick_butt->get_street_name_any(null,null,array('nominatim','yahoo')),true)));
 //
 /*
 $kick_butt->debug(__METHOD__, "simple", 1, sprintf("From all engines = %s",print_r($kick_butt->get_street_name_all(),true)));
