@@ -1044,14 +1044,16 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       $keep_trying_url=true;
       while($keep_trying_url) {
+         $this->debug( __METHOD__, "simple", 2, sprintf("Checking url engine(%s) state : %d", $tag, $our_services[$current_service_number]['state']));
          /* Checking the state of this engine first */
          if ($our_services[$current_service_number]['state'] !== 1) {
-            /* Seems this service has been marked as down */
+            /* Seems this service url has been marked as down */
             $current_service_number++;
          }
 
          /* Check to see if we have services left tot try */
          if($current_service_number>=$total_services) {
+            $this->debug( __METHOD__, "simple", 2, sprintf("Out of urls to try ( %d out of %d )",$current_service_number, $total_services));
             $this->hints[$tag]['current'] = 0;
             $keep_trying_url=false;
             break;

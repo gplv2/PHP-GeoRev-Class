@@ -39,7 +39,7 @@ $conf = array(
             array('host' => 'localhost:11211', 'name'=> 'slice002', 'type' => 'memcached' )
             ),
       'server_urls' => array(
-            array('url' => 'http://nominatim.dyndns.org/reversed.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim' , 'state'=> 1, 'last_error'=>''),
+            array('url' => 'http://nominatim.dyndns.org/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim' , 'state'=> 1, 'last_error'=>''),
             array('url' => 'http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim' , 'state'=> 1, 'last_error'=>'')
             ),
       'mc_compress' => '1',
