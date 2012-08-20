@@ -1059,10 +1059,11 @@ Not-for-profit: Application is used by a tax-exempt organization.
             break;
          }
          
-         $this->debug( __METHOD__, "simple", 2, sprintf("Geocoding url '%s'", $our_services[$current_service_number]['url']));
          $this->counters['hit_nominatim']++;
 
          $url = sprintf($our_services[$current_service_number]['url'],$this->lat,$this->lon,$this->settings['key_nominatim']);
+         //$this->debug( __METHOD__, "simple", 2, sprintf("Geocoding url '%s'", $our_services[$current_service_number]['url']));
+         $this->debug( __METHOD__, "simple", 2, sprintf("Geocoding url '%s'", $url));
          /* Do it with curl */
          $ch = curl_init($url);
 
