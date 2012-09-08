@@ -106,12 +106,20 @@ Class GeoRev {
    // Dev aid
    public $debug;
    public $verbose;
+//   public $cli;
 
    // Urls per service
    private $urls=array();
    private $hints=array();
 
    public function __construct($conf_settings) {
+/*
+      if (php_sapi_name()!='cli') {
+         // We are probably not running from a webserver so we need to take care of the STDOUT STDERR debug things
+         $this->cli=0;
+      }
+*/
+
       /* My own test if we are called from the CLI , could use PHP_EOL instead I know */
       if (defined('STDIN')) {
          $this->eol="\n";
@@ -2257,11 +2265,19 @@ Not-for-profit: Application is used by a tax-exempt organization.
             // This is overkill, we can use json pretty print function for this
             if ($nested) {
                if ($type == "stderr") {
-                  fwrite(STDERR, $this->json_printable_encode($message,3,true)); 
-                  fwrite($this->eol);
+                  if (defined('STDERR')) {
+                     fwrite(STDERR, $this->json_printable_encode($message,3,true)); 
+                     fwrite($this->eol);
+                  } else {
+                     trigger_error($message, E_USER_NOTICE);
+                  }
                } else {
-                  fwrite(STDOUT, $this->json_printable_encode($message,3,true)); 
-                  fwrite($this->eol);
+                  if (defined('STDOUT')) {
+                     fwrite(STDOUT, $this->json_printable_encode($message,3,true)); 
+                     fwrite($this->eol);
+                  } else {
+                     trigger_error($message, E_USER_NOTICE);
+                  }
                }
                return;
             }
@@ -2283,11 +2299,19 @@ Not-for-profit: Application is used by a tax-exempt organization.
                   if ($type == "stderr") {
                      // or see http://dren.ch/php-print-to-stderr/ and try this below when this doesn't work for YOUR php version
                      // $STDERR = fopen('php://stderr', 'w+');
-                     fwrite(STDERR, $content); 
+                     if (defined('STDERR')) {
+                        fwrite(STDERR, $content); 
+                     } else {
+                        trigger_error($content, E_USER_NOTICE);
+                     }
                   } else {
-                     fwrite(STDOUT, $content); 
+                     if (defined('STDOUT')) {
+                        fwrite(STDOUT, $content); 
+                     } else {
+                        trigger_error($content, E_USER_NOTICE);
+                     }
                   }
-               }
+              }
             }
          } else {
             $lines = explode("\n", trim($message));
@@ -2302,11 +2326,21 @@ Not-for-profit: Application is used by a tax-exempt organization.
             foreach ($lines as $line) {
                $content = sprintf("%s:[%d]- %s %s%s", $DateTime, $level, $pre, $line , $this->eol);
                /* Finally we dump this to stderr or the stdout */
-               if ($type == "stderr") {
-                  fwrite(STDERR, $content); 
-               } else {
-                  fwrite(STDOUT, $content); 
-               }
+                  if ($type == "stderr") {
+                     // or see http://dren.ch/php-print-to-stderr/ and try this below when this doesn't work for YOUR php version
+                     // $STDERR = fopen('php://stderr', 'w+');
+                     if (defined('STDERR')) {
+                        fwrite(STDERR, $content); 
+                     } else {
+                        trigger_error($content, E_USER_NOTICE);
+                     }
+                  } else {
+                     if (defined('STDOUT')) {
+                        fwrite(STDOUT, $content); 
+                     } else {
+                        trigger_error($content, E_USER_NOTICE);
+                     }
+                  }
             }
          }
       }
