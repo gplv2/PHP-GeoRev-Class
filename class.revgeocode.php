@@ -1034,8 +1034,8 @@ Not-for-profit: Application is used by a tax-exempt organization.
       // Fall back on hardcoded server list for now
       if ($total_services<=0) {
          $our_services= array(
-            array('url' => 'http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim'  , 'state'=> 1, 'last_error'=>''),
-            array('url' => 'http://nominatim.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim'  , 'state'=> 1, 'last_error'=>'')
+            array('url' => 'http://nominatim.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim'  , 'state'=> 1, 'last_error'=>''),
+            array('url' => 'http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim'  , 'state'=> 1, 'last_error'=>'')
          );
       }
 
@@ -2171,7 +2171,9 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       // print_r(array_diff($this->get_engines_available(), $preferred));
       // print_r($preferred);
-      
+
+      $lastengine=null; 
+
       $engines_in_order = array_merge($preferred , array_diff($available, $preferred));
       foreach($engines_in_order as $engine) {
          $geocoder = sprintf('get_street_name_%s',$engine);
@@ -2179,11 +2181,17 @@ Not-for-profit: Application is used by a tax-exempt organization.
          // Calls the variable method
          $result[$engine]=$this->$geocoder();
          if(strlen($result[$engine])) {
+            $lastengine=$engine;
             break;
          }
       }
+
       //$this->debug(__METHOD__, "simple", 2, $this->engines_available());
-      return $result;
+      if(!strlen($result[$lastengine])) {
+         return "";
+      } else {
+         return $result[$lastengine];
+      }
    }
 
    public function get_engines_available() {
