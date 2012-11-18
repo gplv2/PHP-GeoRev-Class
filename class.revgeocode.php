@@ -1032,13 +1032,12 @@ Not-for-profit: Application is used by a tax-exempt organization.
 
       $our_services=$this->getserviceurls($tag);
       $total_services=count($our_services);
-
       // Fall back on hardcoded server list for now
       if ($total_services<=0) {
          $our_services= array(
-            array('url' => 'http://nominatim.openstreetmap.org/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim'  , 'state'=> 1, 'last_error'=>'')
-            //array('url' => 'http://nominatim.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim'  , 'state'=> 1, 'last_error'=>''),
-            //array('url' => 'http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim'  , 'state'=> 1, 'last_error'=>'')
+            array('url' => 'http://nominatim.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim'  , 'state'=> 1, 'last_error'=>''),
+            array('url' => 'http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim'  , 'state'=> 1, 'last_error'=>'')
+            //array('url' => 'http://nominatim.openstreetmap.org/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim'  , 'state'=> 1, 'last_error'=>'')
          );
       }
 
