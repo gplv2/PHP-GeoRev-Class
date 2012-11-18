@@ -17,7 +17,7 @@ I made this to compair them in depth on their quality/results.
 
 #### Reverse geocoding engines
 - [Google](http://maps.google.com/maps/api/geocode/json?address=1600+Amphitheatre+Parkway&client=gme-yourclientid&sensor=true&signature=YOUR_URL_SIGNATURE)
-- ~~~[Yahoo](http://where.yahooapis.com/geocode?q=%1$s,+%2$s&gflags=R&appid=[yourappidhere])~~~ Yahoo was to shutdown its services at 17/11/12 but as of today still works
+- <strike>[Yahoo](http://where.yahooapis.com/geocode?q=%1$s,+%2$s&gflags=R&appid=[yourappidhere])</strike> Yahoo was to shutdown its services at 17/11/12 but as of today still works
 - [Bing](http://dev.virtualearth.net/REST/v1/Locations/50.43434,4.5232323?o=json&key=[key_here])
 - [Nominatim](http://open.mapquestapi.com/nominatim/v1/reverse?format=json&json_callback=renderExampleThreeResults&lat=51.521435&lon=-0.162714) By Mapquest Open
 - [GeoNames](http://api.geonames.org/findNearbyPlaceNameJSON?lat=%s&lng=%s&username=%s&style=full)
@@ -26,7 +26,7 @@ I made this to compair them in depth on their quality/results.
 Api key signup links (incomplete)
 --------------------------
 - Google Maps API key: http://code.google.com/apis/maps/signup.html
-- ~~~Yahoo Placefinder Maps API key: http://developer.yahoo.com/maps/simple/~~~
+- <strike>Yahoo Placefinder Maps API key: http://developer.yahoo.com/maps/simple/</strike>
 - Nominatim / Mapquest: http://open.mapquestapi.com/nominatim/
 
 Quick-start
