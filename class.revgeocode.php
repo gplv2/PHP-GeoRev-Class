@@ -936,7 +936,9 @@ Not-for-profit: Application is used by a tax-exempt organization.
       $this->debug( __METHOD__, "simple", 2, sprintf("Encoding with Cloudmade"));
 
       // http://geocoding.cloudmade.com/<an_api_key>/geocoding/v2/find.js?object_type=address&around=51.0433583233,4.49876833333&distance=closest
-		$baseurl = "http://geocoding.cloudmade.com/%s/geocoding/v2/find.js?object_type=address&around=%s,%s&distance=closest";
+		$baseurl = "http://geocoding.cloudmade.com/%s/geocoding/v2/find.js?object_type=address&around=%s,%s&distance=closest&return_location=true";
+// http://geocoding.cloudmade.com/YOUR-API-KEY/geocoding/v2/find.html?around=[object,point]&object_type=OBJECT_TYPE
+
       $url = sprintf($baseurl,$this->settings['key_cloudmade'], $this->lat,$this->lon);
 
       $this->debug( __METHOD__, "simple", 2, sprintf("Geocoding url '%s'", $url));
@@ -962,7 +964,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          return "";
       }
 
-      // $this->debug( __METHOD__, "simple", 5, $server_output);
+      $this->debug( __METHOD__, "simple", 5, $server_output);
       $contents = $server_output; 
       if (preg_match("/utf-8/", strtolower($curlinfo['content_type']), $matches)) {
          if (!empty($matches[0])) {
@@ -1034,8 +1036,9 @@ Not-for-profit: Application is used by a tax-exempt organization.
       // Fall back on hardcoded server list for now
       if ($total_services<=0) {
          $our_services= array(
-            array('url' => 'http://nominatim.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim'  , 'state'=> 1, 'last_error'=>''),
-            array('url' => 'http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim'  , 'state'=> 1, 'last_error'=>'')
+            array('url' => 'http://nominatim.openstreetmap.org/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim'  , 'state'=> 1, 'last_error'=>'')
+            //array('url' => 'http://nominatim.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim'  , 'state'=> 1, 'last_error'=>''),
+            //array('url' => 'http://gazzy.dyndns.org:8888/reverse.php?format=json&lat=%s&lon=%s&zoom=18&addressdetails=1&email=%s&accept-language=nl,en;q=0.8,fr;q=0.5', 'name'=> 'gazzy', 'type' => 'nominatim'  , 'state'=> 1, 'last_error'=>'')
          );
       }
 
@@ -1826,6 +1829,7 @@ Not-for-profit: Application is used by a tax-exempt organization.
          // 2011-07-28 16:09:42:[2]- [GeoRev::()]             [country_code] => be
          // 2011-07-28 16:09:42:[2]- [GeoRev::()]             [postcode] => 2801
          //
+         $house_number = '';
          if (isset($page['address']['house_number']) and !empty($page['address']['house_number'])) {
             $house_number = $page['address']['house_number'];
          }
@@ -1858,7 +1862,6 @@ Not-for-profit: Application is used by a tax-exempt organization.
          // 2011-07-28 23:54:37:[2]- [GeoRev::()] ) 
          //
 
-         $house_number = '';
          if (strlen($house_number)>0) { 
             $house_number = sprintf(" %s",$house_number);
          }
